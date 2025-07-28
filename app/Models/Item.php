@@ -843,4 +843,25 @@ class Item extends Model
         $this->quantity = $newQuantity;
         $this->save(); // Will trigger model events for auto-sync
     }
+    public function saleTaxCategory()
+    {
+        return $this->belongsTo(\App\Models\Accounting\TaxCategory::class, 'sale_tax_category_id');
+    }
+
+    public function purchaseTaxCategory()
+    {
+        return $this->belongsTo(\App\Models\Accounting\TaxCategory::class, 'purchase_tax_category_id');
+    }
+
+    public function getApplicableTaxes($scope = 'sale')
+    {
+        $categoryField = $scope === 'sale' ? 'sale_tax_category_id' : 'purchase_tax_category_id';
+        $category = $this->$categoryField ? $this->{"${scope}TaxCategory"} : null;
+        
+        if (!$category) {
+            return collect();
+        }
+        
+        return $category->activeTaxCodes;
+    }
 }

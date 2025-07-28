@@ -74,7 +74,9 @@ use App\Http\Controllers\Api\Accounting\BankAccountController;
 use App\Http\Controllers\Api\Accounting\BankReconciliationController;
 use App\Http\Controllers\Api\Accounting\FinancialReportController;
 use App\Http\Controllers\Api\Manufacturing\JobTicketController;
-
+use App\Http\Controllers\Api\Accounting\TaxConfigurationController;
+use App\Http\Controllers\Api\Accounting\TaxCodeController;
+use App\Http\Controllers\Api\Accounting\TaxCategoryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -671,6 +673,19 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('chart-of-accounts/hierarchy', [ChartOfAccountController::class, 'hierarchy']);
         Route::apiResource('chart-of-accounts', ChartOfAccountController::class);
 
+        // Tax Management Routes
+        Route::apiResource('tax-codes', TaxCodeController::class);
+        Route::get('tax-codes/scope/{scope}', [TaxCodeController::class, 'getByScope']);
+        Route::post('tax-codes/calculate', [TaxCodeController::class, 'calculateTax']);
+        
+        Route::apiResource('tax-categories', TaxCategoryController::class);
+        Route::get('tax-categories/{id}/default-tax-codes', [TaxCategoryController::class, 'getDefaultTaxCodes']);
+        Route::post('tax-categories/{id}/calculate', [TaxCategoryController::class, 'calculateCategoryTax']);
+        
+        Route::get('tax-configuration', [TaxConfigurationController::class, 'index']);
+        Route::post('tax-configuration', [TaxConfigurationController::class, 'store']);
+        Route::put('tax-configuration/{id}', [TaxConfigurationController::class, 'update']);
+        Route::post('tax-configuration/test-rounding', [TaxConfigurationController::class, 'testRounding']);
         // Accounting Periods
         Route::get('accounting-periods/current', [AccountingPeriodController::class, 'current']);
         Route::apiResource('accounting-periods', AccountingPeriodController::class);

@@ -116,6 +116,11 @@
                                         <div class="customer-info">
                                             <div class="customer-name">{{ customer.name }}</div>
                                             <div class="customer-code" v-if="customer.customer_code">{{ customer.customer_code }}</div>
+                                            <div class="customer-tax-info" v-if="customer.is_tax_exempt">
+                                                <small class="text-warning">
+                                                    <i class="fas fa-exclamation-triangle"></i> Tax Exempt
+                                                </small>
+                                            </div>
                                         </div>
                                     </div>
                                     <div v-if="getFilteredCustomers(customerSearch).length === 0" class="dropdown-item text-muted">
@@ -132,6 +137,7 @@
                                 v-model="form.currency_code"
                                 required
                                 :disabled="isLoadingCurrencies"
+                                @change="onCurrencyChange"
                             >
                                 <option value="">{{ isLoadingCurrencies ? 'Loading currencies...' : 'Select Currency' }}</option>
                                 <option 
@@ -167,6 +173,28 @@
                                 v-model="form.delivery_terms"
                                 placeholder="Example: Free to buyer's warehouse"
                             />
+                        </div>
+                    </div>
+
+                    <!-- Tax Configuration Info -->
+                    <div class="form-row" v-if="taxConfiguration">
+                        <div class="form-group">
+                            <div class="tax-config-info">
+                                <h6 class="mb-2">
+                                    <i class="fas fa-cog me-2"></i>Tax Configuration
+                                </h6>
+                                <div class="d-flex gap-3">
+                                    <small class="text-muted">
+                                        <strong>Pricing:</strong> 
+                                        {{ taxConfiguration.tax_inclusive_pricing ? 'Tax Inclusive' : 'Tax Exclusive' }}
+                                    </small>
+                                    <small class="text-muted">
+                                        <strong>Rounding:</strong> 
+                                        {{ formatRoundingMethod(taxConfiguration.rounding_method) }} 
+                                        ({{ taxConfiguration.rounding_precision }} decimal places)
+                                    </small>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -225,6 +253,10 @@
                         <div class="order-currency-info" v-if="form.currency_code !== 'IDR'">
                             <i class="fas fa-info-circle"></i>
                             All prices in <strong>{{ form.currency_code }}</strong>
+                            <span v-if="taxConfiguration?.tax_inclusive_pricing" class="ms-2">
+                                <i class="fas fa-percentage"></i>
+                                Tax Inclusive Pricing
+                            </span>
                         </div>
 
                         <div class="line-headers">
@@ -234,8 +266,9 @@
                             <div class="line-header">UOM</div>
                             <div class="line-header">Delivery Date</div>
                             <div class="line-header">Discount</div>
-                            <div class="line-header">Tax</div>
+                            <div class="line-header">Taxes</div>
                             <div class="line-header">Subtotal</div>
+                            <div class="line-header">Tax Amount</div>
                             <div class="line-header">Total</div>
                             <div class="line-header"></div>
                         </div>
@@ -245,7 +278,7 @@
                             :key="index"
                             class="order-line"
                         >
-                            <!-- ITEM DROPDOWN - FIXED VERSION -->
+                            <!-- ITEM DROPDOWN -->
                             <div class="line-item" data-label="Item" :data-line-index="index">
                                 <div class="item-code" v-if="line.item_code" style="font-weight: bold; margin-bottom: 0.25rem;">
                                     {{ line.item_code }}
@@ -274,6 +307,12 @@
                                                 <div class="item-display">
                                                     <strong>{{ item.item_code }}</strong> - {{ item.name }}
                                                     <small v-if="item.description" class="text-muted d-block">{{ item.description }}</small>
+                                                    <div v-if="item.sale_tax_category" class="item-tax-info">
+                                                        <small class="text-info">
+                                                            <i class="fas fa-tag"></i> 
+                                                            Tax Category: {{ item.sale_tax_category.category_name }}
+                                                        </small>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -362,15 +401,23 @@
                                 />
                             </div>
 
-                            <div class="line-item" data-label="Tax">
-                                <input
-                                    type="number"
-                                    v-model.number="line.tax"
-                                    min="0"
-                                    step="0.01"
-                                    @input="calculateLineTotals(index)"
-                                    placeholder="0.00"
+                            <!-- Tax Selector -->
+                            <div class="line-item tax-selector-container" data-label="Taxes">
+                                <TaxSelector
+                                    v-model="line.taxes"
+                                    :subtotal-amount="line.subtotal || 0"
+                                    :tax-category-id="line.item?.sale_tax_category_id"
+                                    scope="sale"
+                                    :is-inclusive="taxConfiguration?.tax_inclusive_pricing"
+                                    :disabled="!line.item_id || isCustomerTaxExempt"
+                                    @tax-change="onLineTaxChange(index, $event)"
                                 />
+                                <div v-if="isCustomerTaxExempt" class="tax-exempt-notice">
+                                    <small class="text-warning">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        Customer is tax exempt
+                                    </small>
+                                </div>
                             </div>
 
                             <div
@@ -378,6 +425,13 @@
                                 data-label="Subtotal"
                             >
                                 {{ formatCurrency(line.subtotal || 0) }}
+                            </div>
+
+                            <div
+                                class="line-item tax-amount"
+                                data-label="Tax Amount"
+                            >
+                                {{ formatCurrency(line.tax_amount || 0) }}
                             </div>
 
                             <div class="line-item total" data-label="Total">
@@ -396,6 +450,7 @@
                             </div>
                         </div>
 
+                        <!-- Order Totals -->
                         <div class="order-totals">
                             <div class="total-row">
                                 <div class="total-label">Subtotal:</div>
@@ -415,11 +470,37 @@
                                     {{ formatCurrency(calculateTotalTax()) }}
                                 </div>
                             </div>
+                            
+                            <!-- Tax Breakdown -->
+                            <div v-if="orderTaxBreakdown.length > 0" class="tax-breakdown">
+                                <div class="tax-breakdown-header">
+                                    <small class="text-muted">Tax Breakdown:</small>
+                                </div>
+                                <div 
+                                    v-for="taxItem in orderTaxBreakdown" 
+                                    :key="taxItem.tax_code"
+                                    class="tax-breakdown-item"
+                                >
+                                    <small>
+                                        {{ taxItem.tax_code }} ({{ taxItem.tax_rate }}%): 
+                                        {{ formatCurrency(taxItem.total_amount) }}
+                                    </small>
+                                </div>
+                            </div>
+
                             <div class="total-row grand-total">
-                                <div class="total-label">Total:</div>
+                                <div class="total-label">Grand Total:</div>
                                 <div class="total-value">
                                     {{ formatCurrency(calculateGrandTotal()) }}
                                 </div>
+                            </div>
+
+                            <!-- Exchange Rate Info (if not base currency) -->
+                            <div v-if="form.currency_code && form.currency_code !== baseCurrency" class="exchange-rate-info">
+                                <small class="text-muted">
+                                    <i class="fas fa-exchange-alt"></i>
+                                    Exchange rate information will be applied during processing
+                                </small>
                             </div>
                         </div>
                     </div>
@@ -430,16 +511,27 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from "vue";
+/* eslint-disable */
+import { ref, computed, onMounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import axios from "axios";
 import { useCurrency } from '@/composables/useCurrency';
+import { useTaxConfigurationStore } from '@/stores/taxConfigurationStore';
+import { useTaxCategoryStore } from '@/stores/taxCategoryStore';
+import TaxSelector from '@/components/accounting/TaxSelector.vue';
 
 export default {
     name: "SalesOrderForm",
+    components: {
+        TaxSelector
+    },
     setup() {
         const router = useRouter();
         const route = useRoute();
+
+        // Stores
+        const taxConfigStore = useTaxConfigurationStore();
+        const taxCategoryStore = useTaxCategoryStore();
 
         const safeParseFloat = (value) => {
             if (value === null || value === undefined || value === '') return 0;
@@ -460,7 +552,7 @@ export default {
             payment_terms: "",
             delivery_terms: "",
             expected_delivery: "",
-            currency_code: "", // Default currency will be set from base currency
+            currency_code: "",
             status: "Draft",
             lines: [],
         });
@@ -470,38 +562,69 @@ export default {
         const items = ref([]);
         const unitOfMeasures = ref([]);
         const selectedCustomer = ref(null);
+        const taxConfiguration = ref(null);
 
         // Customer search functionality
         const customerSearch = ref('');
         const showCustomerDropdown = ref(false);
 
         // UI state
-        const currencies = ref([]); // New: Store all currencies
+        const currencies = ref([]);
         const isLoading = ref(false);
         const isLoadingCurrencies = ref(false);
         const isSubmitting = ref(false);
         const error = ref("");
         const nextSoNumber = ref('');
 
-        // Computed property for sellable items with debug logging
+        // Computed properties
         const sellableItems = computed(() => {
             const sellable = items.value.filter(item => item.is_sellable === true || item.is_sellable === 1);
             console.log('🔍 Sellable items computed:', sellable.length, 'out of', items.value.length);
             return sellable;
         });
 
-        // New: Filter active currencies and sort by sort_order
         const activeCurrencies = computed(() => {
             return currencies.value
                 .filter(currency => currency.is_active)
                 .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
         });
 
-        // Check if we're in edit mode
         const isEditMode = computed(() => {
             return route.params.id !== undefined;
         });
 
+        const baseCurrency = computed(() => {
+            return currency.baseCurrency.value;
+        });
+
+        const isCustomerTaxExempt = computed(() => {
+            return selectedCustomer.value?.is_tax_exempt || false;
+        });
+
+        // Tax breakdown calculation
+        const orderTaxBreakdown = computed(() => {
+            const taxMap = new Map();
+            
+            form.value.lines.forEach(line => {
+                if (line.taxes && line.taxes.length > 0) {
+                    line.taxes.forEach(tax => {
+                        const key = tax.tax_code;
+                        if (taxMap.has(key)) {
+                            const existing = taxMap.get(key);
+                            existing.total_amount += tax.calculated_amount || 0;
+                        } else {
+                            taxMap.set(key, {
+                                tax_code: tax.tax_code,
+                                tax_rate: tax.tax_rate,
+                                total_amount: tax.calculated_amount || 0
+                            });
+                        }
+                    });
+                }
+            });
+
+            return Array.from(taxMap.values()).sort((a, b) => a.tax_code.localeCompare(b.tax_code));
+        });
 
         // Load next sales order number for preview
         const loadNextSalesOrderNumber = async () => {
@@ -516,12 +639,12 @@ export default {
             }
         };
 
-        // New: Load currencies from API
+        // Load currencies from API
         const loadCurrencies = async () => {
             try {
                 isLoadingCurrencies.value = true;
                 console.log('🔄 Loading currencies from API...');
-                // Fallback: try the general system currencies endpoint
+                
                 try {
                     const fallbackResponse = await axios.get("/system-currencies");
                     if (fallbackResponse.data && fallbackResponse.data.data) {
@@ -547,19 +670,36 @@ export default {
                 isLoadingCurrencies.value = false;
             }
         };
-        // FIXED: Load reference data with enhanced logging
+
+        // Load tax configuration
+        const loadTaxConfiguration = async () => {
+            try {
+                const config = await taxConfigStore.fetchTaxConfiguration();
+                taxConfiguration.value = config.data;
+                console.log('✅ Tax configuration loaded:', taxConfiguration.value);
+            } catch (error) {
+                console.error('❌ Error loading tax configuration:', error);
+                // Continue without tax configuration
+            }
+        };
+
+        // Load reference data with enhanced logging
         const loadReferenceData = async () => {
             try {
                 console.log('🔄 Loading reference data...');
 
                 // Load currencies first
                 await loadCurrencies();
-                // Load customers
+                
+                // Load tax configuration
+                await loadTaxConfiguration();
+                
+                // Load customers with tax information
                 const customersResponse = await axios.get("/customers");
                 customers.value = customersResponse.data.data || [];
                 console.log('✅ Customers loaded:', customers.value.length);
 
-                // Load items
+                // Load items with tax categories
                 const itemsResponse = await axios.get("/items");
                 items.value = itemsResponse.data.data || [];
                 console.log('✅ Items loaded:', items.value.length);
@@ -631,7 +771,7 @@ export default {
                     lines: [],
                 };
 
-                // Set line items dengan validasi
+                // Set line items with tax information
                 if (order.salesOrderLines && order.salesOrderLines.length > 0) {
                     form.value.lines = order.salesOrderLines.map((line) => {
                         const selectedItem = items.value.find(i => i.item_id == line.itemId);
@@ -639,6 +779,7 @@ export default {
                         return {
                             line_id: line.lineId,
                             item_id: line.itemId,
+                            item: selectedItem,
                             item_code: selectedItem ? selectedItem.item_code : '',
                             itemSearch: selectedItem ? `${selectedItem.item_code} - ${selectedItem.name}` : '',
                             showDropdown: false,
@@ -647,7 +788,8 @@ export default {
                             uom_id: line.uomId,
                             delivery_date: line.deliveryDate ? line.deliveryDate.substr(0, 10) : '',
                             discount: safeParseFloat(line.discount),
-                            tax: safeParseFloat(line.tax),
+                            taxes: line.taxes || [], // Load existing tax data
+                            tax_amount: safeParseFloat(line.taxAmount || 0),
                             subtotal: safeParseFloat(line.subtotal),
                             total: safeParseFloat(line.total),
                         };
@@ -698,9 +840,14 @@ export default {
             if (customer.preferred_currency) {
                 form.value.currency_code = customer.preferred_currency;
             }
+
+            // Recalculate taxes for all lines if customer tax status changed
+            form.value.lines.forEach((_, index) => {
+                calculateLineTotals(index);
+            });
         };
 
-        // FIXED: Enhanced item filtering with better logic
+        // Enhanced item filtering with better logic
         const getFilteredItems = (searchInput) => {
             const searchTerm = (searchInput || '').trim();
 
@@ -722,7 +869,7 @@ export default {
             return filtered.slice(0, 50); // Limit to 50 results for performance
         };
 
-        // NEW: Show item dropdown with proper state management
+        // Show item dropdown with proper state management
         const showItemDropdown = (index) => {
             console.log('👆 Show dropdown for line', index);
 
@@ -740,7 +887,7 @@ export default {
             }
         };
 
-        // NEW: Handle item search input
+        // Handle item search input
         const handleItemSearch = (index, event) => {
             const searchTerm = event.target.value;
             console.log('🔍 Search term changed:', searchTerm, 'for line', index);
@@ -751,7 +898,7 @@ export default {
             }
         };
 
-        // FIXED: Enhanced item selection with better price handling
+        // Enhanced item selection with tax category handling
         const selectItem = async (item, lineIndex) => {
             console.log('✅ Selecting item:', item.item_code, 'for line', lineIndex);
 
@@ -759,9 +906,14 @@ export default {
 
             // Set item data
             line.item_id = item.item_id;
+            line.item = item;
             line.item_code = item.item_code;
             line.itemSearch = `${item.item_code} - ${item.name}`;
             line.showDropdown = false;
+
+            // Clear existing taxes when item changes
+            line.taxes = [];
+            line.tax_amount = 0;
 
             // Set UOM automatically if available
             if (item.uom_id) {
@@ -828,6 +980,7 @@ export default {
 
             form.value.lines.push({
                 item_id: "",
+                item: null,
                 item_code: "",
                 itemSearch: "",
                 showDropdown: false,
@@ -836,7 +989,8 @@ export default {
                 uom_id: "",
                 delivery_date: defaultDeliveryDate,
                 discount: 0,
-                tax: 0,
+                taxes: [],
+                tax_amount: 0,
                 subtotal: 0,
                 total: 0,
             });
@@ -849,24 +1003,46 @@ export default {
             console.log('➖ Removed line', index, ', total lines:', form.value.lines.length);
         };
 
+        // Enhanced line calculation with tax support
         const calculateLineTotals = (index) => {
             const line = form.value.lines[index];
 
-            // Pastikan semua nilai numerik valid
+            // Ensure all numeric values are valid
             const unitPrice = safeParseFloat(line.unit_price);
             const quantity = safeParseFloat(line.quantity);
             const discount = safeParseFloat(line.discount);
-            const tax = safeParseFloat(line.tax);
 
-            // Calculate subtotal (unit_price * quantity)
-            line.subtotal = unitPrice * quantity;
+            // Calculate subtotal (unit_price * quantity - discount)
+            line.subtotal = Math.max(0, (unitPrice * quantity) - discount);
 
-            // Calculate total (subtotal - discount + tax)
-            line.total = line.subtotal - discount + tax;
+            // Tax amount will be calculated by TaxSelector component
+            // We just ensure tax_amount exists
+            if (!line.tax_amount) {
+                line.tax_amount = 0;
+            }
 
-            // Pastikan nilai tidak negatif
+            // Calculate total (subtotal + tax_amount)
+            line.total = line.subtotal + line.tax_amount;
+
+            // Ensure values are not negative
             line.subtotal = Math.max(0, line.subtotal);
             line.total = Math.max(0, line.total);
+        };
+
+        // Handle tax changes from TaxSelector component
+        const onLineTaxChange = (lineIndex, taxData) => {
+            const line = form.value.lines[lineIndex];
+            line.tax_amount = taxData.totalTaxAmount || 0;
+            line.total = line.subtotal + line.tax_amount;
+            console.log('💰 Tax changed for line', lineIndex, ':', taxData);
+        };
+
+        // Handle currency change
+        const onCurrencyChange = () => {
+            // Recalculate all line totals when currency changes
+            form.value.lines.forEach((_, index) => {
+                calculateLineTotals(index);
+            });
         };
 
         // Calculate totals
@@ -884,7 +1060,7 @@ export default {
 
         const calculateTotalTax = () => {
             return form.value.lines.reduce((sum, line) => {
-                return sum + safeParseFloat(line.tax);
+                return sum + safeParseFloat(line.tax_amount);
             }, 0);
         };
 
@@ -912,12 +1088,22 @@ export default {
             }
         };
 
+        // Format rounding method for display
+        const formatRoundingMethod = (method) => {
+            const methods = {
+                'round': 'Normal',
+                'round_up': 'Round Up',
+                'round_down': 'Round Down'
+            };
+            return methods[method] || method;
+        };
+
         // Navigation
         const goBack = () => {
             router.push("/sales/orders");
         };
 
-        // Save order
+        // Save order with tax information
         const saveOrder = async () => {
             // Validate form
             if (
@@ -952,7 +1138,7 @@ export default {
             error.value = "";
 
             try {
-                // Prepare order data dengan nilai yang sudah divalidasi
+                // Prepare order data with tax information
                 const orderLines = form.value.lines.map(line => ({
                     line_id: line.line_id,
                     item_id: line.item_id,
@@ -961,7 +1147,8 @@ export default {
                     uom_id: line.uom_id,
                     delivery_date: line.delivery_date,
                     discount: safeParseFloat(line.discount),
-                    tax: safeParseFloat(line.tax),
+                    taxes: line.taxes || [], // Include tax information
+                    tax_amount: safeParseFloat(line.tax_amount),
                     subtotal: safeParseFloat(line.subtotal),
                     total: safeParseFloat(line.total)
                 }));
@@ -970,6 +1157,8 @@ export default {
                     ...form.value,
                     total_amount: calculateGrandTotal(),
                     tax_amount: calculateTotalTax(),
+                    subtotal_amount: calculateSubtotal(),
+                    discount_amount: calculateTotalDiscount(),
                     lines: orderLines
                 };
 
@@ -1036,7 +1225,7 @@ export default {
                 // Fetch currency settings from backend
                 await currency.fetchCurrencySettings();
 
-                // Set form.currency_code to base currency if not set or is "INR"
+                // Set form.currency_code to base currency if not set
                 if (!form.value.currency_code || form.value.currency_code === "INR") {
                     form.value.currency_code = currency.baseCurrency.value;
                 }
@@ -1053,10 +1242,10 @@ export default {
             customers,
             items,
             unitOfMeasures,
-            currencies, // New: Expose currencies
-            activeCurrencies, // New: Expose filtered active currencies
+            currencies,
+            activeCurrencies,
             isLoading,
-            isLoadingCurrencies, // New: Expose currency loading state
+            isLoadingCurrencies,
             isSubmitting,
             error,
             isEditMode,
@@ -1065,6 +1254,10 @@ export default {
             customerSearch,
             showCustomerDropdown,
             nextSoNumber,
+            taxConfiguration,
+            baseCurrency,
+            isCustomerTaxExempt,
+            orderTaxBreakdown,
             safeParseFloat,
             getFilteredCustomers,
             selectCustomer,
@@ -1075,14 +1268,17 @@ export default {
             addLine,
             removeLine,
             calculateLineTotals,
+            onLineTaxChange,
+            onCurrencyChange,
             calculateSubtotal,
             calculateTotalDiscount,
             calculateTotalTax,
             calculateGrandTotal,
             formatCurrency,
+            formatRoundingMethod,
             goBack,
             saveOrder,
-            currency, // expose currency composable
+            currency,
         };
     },
 };
@@ -1227,6 +1423,56 @@ export default {
     margin-top: 0.25rem;
 }
 
+.text-warning {
+    color: #f59e0b;
+}
+
+.text-info {
+    color: #0ea5e9;
+}
+
+/* Tax Configuration Info */
+.tax-config-info {
+    background-color: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 0.375rem;
+    padding: 1rem;
+}
+
+.tax-config-info h6 {
+    color: #1e40af;
+    margin-bottom: 0.5rem;
+}
+
+.d-flex {
+    display: flex;
+}
+
+.gap-3 {
+    gap: 1rem;
+}
+
+.ms-2 {
+    margin-left: 0.5rem;
+}
+
+.me-2 {
+    margin-right: 0.5rem;
+}
+
+.mb-2 {
+    margin-bottom: 0.5rem;
+}
+
+/* Customer Tax Info */
+.customer-tax-info {
+    margin-top: 0.25rem;
+}
+
+.item-tax-info {
+    margin-top: 0.25rem;
+}
+
 .empty-lines {
     background-color: #f8fafc;
     padding: 2rem;
@@ -1252,7 +1498,7 @@ export default {
 
 .line-headers {
     display: grid;
-    grid-template-columns: 2.5fr 0.8fr 0.8fr 0.8fr 1fr 0.8fr 0.8fr 1.2fr 1.2fr 0.5fr;
+    grid-template-columns: 2fr 0.8fr 0.8fr 0.6fr 1fr 0.8fr 1.5fr 1fr 1fr 1fr 0.5fr;
     gap: 0.5rem;
     background-color: #f8fafc;
     padding: 0.75rem 1rem;
@@ -1264,11 +1510,11 @@ export default {
 
 .order-line {
     display: grid;
-    grid-template-columns: 2.5fr 0.8fr 0.8fr 0.8fr 1fr 0.8fr 0.8fr 1.2fr 1.2fr 0.5fr;
+    grid-template-columns: 2fr 0.8fr 0.8fr 0.6fr 1fr 0.8fr 1.5fr 1fr 1fr 1fr 0.5fr;
     gap: 0.5rem;
     padding: 0.75rem 1rem;
     border-bottom: 1px solid #e2e8f0;
-    align-items: center;
+    align-items: flex-start;
 }
 
 .order-line:last-child {
@@ -1285,17 +1531,33 @@ export default {
 }
 
 .line-item.subtotal,
-.line-item.total {
+.line-item.total,
+.line-item.tax-amount {
     font-weight: 500;
     text-align: right;
+    align-self: center;
 }
 
 .line-item.total {
     color: #2563eb;
 }
 
+.line-item.tax-amount {
+    color: #059669;
+}
+
 .line-item.actions {
     text-align: center;
+    align-self: center;
+}
+
+/* Tax Selector Container */
+.tax-selector-container {
+    min-width: 300px;
+}
+
+.tax-exempt-notice {
+    margin-top: 0.5rem;
 }
 
 .btn-icon {
@@ -1352,6 +1614,35 @@ export default {
     font-size: 1.125rem;
     font-weight: 600;
     color: #1e293b;
+}
+
+/* Tax Breakdown */
+.tax-breakdown {
+    margin: 0.5rem 0;
+    padding: 0.5rem;
+    background-color: #f0f9ff;
+    border-radius: 0.25rem;
+    border: 1px solid #e0f2fe;
+}
+
+.tax-breakdown-header {
+    margin-bottom: 0.25rem;
+}
+
+.tax-breakdown-item {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 0.125rem;
+}
+
+.tax-breakdown-item:last-child {
+    margin-bottom: 0;
+}
+
+/* Exchange Rate Info */
+.exchange-rate-info {
+    margin-top: 0.5rem;
+    text-align: right;
 }
 
 .btn {
@@ -1507,6 +1798,17 @@ export default {
     z-index: 100;
 }
 
+@media (max-width: 1200px) {
+    .line-headers {
+        grid-template-columns: 1.5fr 0.7fr 0.7fr 0.5fr 0.8fr 0.7fr 1.2fr 0.8fr 0.8fr 0.8fr 0.4fr;
+        font-size: 0.7rem;
+    }
+
+    .order-line {
+        grid-template-columns: 1.5fr 0.7fr 0.7fr 0.5fr 0.8fr 0.7fr 1.2fr 0.8fr 0.8fr 0.8fr 0.4fr;
+    }
+}
+
 @media (max-width: 1024px) {
     .form-row {
         grid-template-columns: 1fr;
@@ -1515,9 +1817,36 @@ export default {
 
     .order-line,
     .line-headers {
-        grid-template-columns: repeat(9, 1fr) 0.5fr;
+        grid-template-columns: 1fr;
         font-size: 0.75rem;
         padding: 0.5rem;
+        gap: 0.25rem;
+    }
+
+    .line-header {
+        display: none;
+    }
+
+    .line-item {
+        display: flex;
+        align-items: flex-start;
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+
+    .line-item::before {
+        content: attr(data-label) ': ';
+        font-weight: 500;
+        width: 8rem;
+        text-align: left;
+        flex-shrink: 0;
+        align-self: center;
+        color: #475569;
+    }
+
+    .tax-selector-container {
+        min-width: auto;
+        width: 100%;
     }
 }
 
@@ -1528,31 +1857,6 @@ export default {
         gap: 1rem;
     }
 
-    .order-line,
-    .line-headers {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-        padding: 1rem;
-    }
-
-    .line-header {
-        display: none;
-    }
-
-    .line-item {
-        display: flex;
-        align-items: center;
-        width: 100%;
-    }
-
-    .line-item::before {
-        content: attr(data-label);
-        font-weight: 500;
-        width: 8rem;
-        text-align: left;
-    }
-
     .total-row {
         flex-direction: column;
         align-items: flex-end;
@@ -1561,6 +1865,10 @@ export default {
     .total-label,
     .total-value {
         width: auto;
+    }
+
+    .tax-breakdown-item {
+        justify-content: flex-start;
     }
 }
 </style>

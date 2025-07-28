@@ -1457,6 +1457,34 @@ const routes = [
                     import("../views/accounting/CurrencyConverter.vue"),
                 meta: { requiresAuth: true },
             },
+            // Tax Management Routes
+            {
+                path: '/accounting/tax-codes',
+                name: 'TaxCodeList',
+                component: () => import('@/views/accounting/TaxCodeList.vue'),
+                meta: { 
+                title: 'Tax Codes',
+                requiresAuth: true 
+                }
+            },
+            {
+                path: '/accounting/tax-categories',
+                name: 'TaxCategoryList',
+                component: () => import('@/views/accounting/TaxCategoryList.vue'),
+                meta: { 
+                title: 'Tax Categories',
+                requiresAuth: true 
+                }
+            },
+            {
+                path: '/accounting/tax-configuration',
+                name: 'TaxConfiguration',
+                component: () => import('@/views/accounting/TaxConfiguration.vue'),
+                meta: { 
+                title: 'Tax Configuration',
+                requiresAuth: true 
+                }
+            },
             // Then add these routes within the children array of the AppLayout route
             // You can place them in the manufacturing section
             {

@@ -98,4 +98,18 @@ class Customer extends Model
     {
         return $this->hasMany(CustomerReceivable::class, 'customer_id');
     }
+    public function defaultTaxCategory()
+    {
+        return $this->belongsTo(\App\Models\Accounting\TaxCategory::class, 'default_tax_category_id');
+    }
+
+    public function getApplicableTaxCategory()
+    {
+        if ($this->is_tax_exempt) {
+            return null;
+        }
+        
+        return $this->defaultTaxCategory ?: 
+            \App\Models\Accounting\TaxConfiguration::getActive()?->defaultSaleTaxCategory;
+    }
 }

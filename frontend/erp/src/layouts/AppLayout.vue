@@ -444,8 +444,28 @@
                                     <span>Currency Converter</span>
                                 </router-link>
                             </div>
+                            <!-- Tax Management Section - NEW -->
+                            <div class="submenu-section">
+                                <h4>Tax Management</h4>
+                                <router-link to="/accounting/tax-codes" class="submenu-link">
+                                    <i class="fas fa-percentage"></i>
+                                    <span>Tax Codes</span>
+                                    <div class="nav-badge" v-if="taxCodeCount > 0">{{ taxCodeCount }}</div>
+                                </router-link>
+                                <router-link to="/accounting/tax-categories" class="submenu-link">
+                                    <i class="fas fa-tags"></i>
+                                    <span>Tax Categories</span>
+                                    <div class="nav-badge" v-if="taxCategoryCount > 0">{{ taxCategoryCount }}</div>
+                                </router-link>
+                                <router-link to="/accounting/tax-configuration" class="submenu-link">
+                                    <i class="fas fa-cog"></i>
+                                    <span>Tax Configuration</span>
+                                    <div class="status-indicator" :class="{ active: taxConfigurationActive }"></div>
+                                </router-link>
+                            </div>
                         </div>
                     </div>
+
 
                     <!-- Reports -->
                     <div class="nav-item has-submenu" :class="{ active: activeSubmenu === 'reports' }">
