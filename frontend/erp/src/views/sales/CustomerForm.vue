@@ -6,34 +6,44 @@
         <h3 class="section-title">Basic Information</h3>
         
         <div class="form-row">
-          <div class="form-group">
-            <label for="customer_code">Customer Code*</label>
-            <input 
-              type="text" 
-              id="customer_code" 
-              v-model="formData.customer_code" 
-              required
-              :disabled="isEditMode"
-              placeholder="e.g., CUST001"
-            />
-            <div v-if="errors.customer_code" class="error-message">
-              {{ errors.customer_code }}
-            </div>
-          </div>
-          
-          <div class="form-group">
-            <label for="name">Name*</label>
-            <input 
-              type="text" 
-              id="name" 
-              v-model="formData.name" 
-              required
-              placeholder="Full customer name"
-            />
-            <div v-if="errors.name" class="error-message">
-              {{ errors.name }}
-            </div>
-          </div>
+      <div class="form-group">
+        <label for="customer_code">Customer Code*</label>
+        <input 
+          type="text" 
+          id="customer_code" 
+          v-model="formData.customer_code" 
+          required
+          :disabled="isEditMode"
+          placeholder="e.g., CUST001"
+        />
+        <div v-if="errors.customer_code" class="error-message">
+          {{ errors.customer_code }}
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label for="name">Name*</label>
+        <input 
+          type="text" 
+          id="name" 
+          v-model="formData.name" 
+          required
+          placeholder="Full customer name"
+        />
+        <div v-if="errors.name" class="error-message">
+          {{ errors.name }}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="payment_term">Payment Term</label>
+        <input
+          type="text"
+          id="payment_term"
+          v-model="formData.payment_term"
+          placeholder="e.g., Net 30 days"
+        />
+      </div>
         </div>
       </div>
       
@@ -168,14 +178,15 @@ export default {
   setup(props, { emit }) {
     // Form data
     const formData = ref({
-      customer_code: '',
-      name: '',
-      address: '',
-      tax_id: '',
-      contact_person: '',
-      phone: '',
-      email: '',
-      status: 'Active'
+    customer_code: '',
+    name: '',
+    payment_term: '',
+    address: '',
+    tax_id: '',
+    contact_person: '',
+    phone: '',
+    email: '',
+    status: 'Active'
     });
     
     // Form state
@@ -185,18 +196,19 @@ export default {
     // Initialize form with customer data if provided
     const initForm = () => {
       if (props.customer) {
-        formData.value = {
-          customer_code: props.customer.customer_code || '',
-          name: props.customer.name || '',
-          address: props.customer.address || '',
-          tax_id: props.customer.tax_id || '',
-          contact_person: props.customer.contact_person || '',
-          phone: props.customer.phone || '',
-          email: props.customer.email || '',
-          status: props.customer.status || 'Active'
-        };
-        
-        isActive.value = formData.value.status === 'Active';
+      formData.value = {
+        customer_code: props.customer.customer_code || '',
+        name: props.customer.name || '',
+        payment_term: props.customer.payment_term || '',
+        address: props.customer.address || '',
+        tax_id: props.customer.tax_id || '',
+        contact_person: props.customer.contact_person || '',
+        phone: props.customer.phone || '',
+        email: props.customer.email || '',
+        status: props.customer.status || 'Active'
+      };
+      
+      isActive.value = formData.value.status === 'Active';
       }
     };
     

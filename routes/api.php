@@ -77,6 +77,7 @@ use App\Http\Controllers\Api\Manufacturing\JobTicketController;
 use App\Http\Controllers\Api\Accounting\TaxConfigurationController;
 use App\Http\Controllers\Api\Accounting\TaxCodeController;
 use App\Http\Controllers\Api\Accounting\TaxCategoryController;
+use App\Http\Controllers\Api\Admin\SystemSettingController;
 
 /*
 |--------------------------------------------------------------------------
@@ -423,8 +424,8 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Routes untuk Outstanding Sales Order
-    Route::get('sales-orders/{id}/outstanding-items', 'Api\Sales\SalesOrderController@getOutstandingItems');
-    Route::get('sales-orders/outstanding', 'Api\Sales\SalesOrderController@getAllOutstandingSalesOrders');
+    Route::get('sales-orders/{id}/outstanding-items', [SalesOrderController::class, 'getOutstandingItems']);
+    Route::get('sales-orders/outstanding', [SalesOrderController::class, 'getAllOutstandingSalesOrders']);
 
 
 
@@ -440,6 +441,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('item-stocks/reserve', [ItemStockController::class, 'reserveStock']);
     Route::post('item-stocks/release-reservation', [ItemStockController::class, 'releaseReservation']);
 
+    Route::get('settings', [SystemSettingController::class, 'index']);
+    Route::get('settings/group/{group}', [SystemSettingController::class, 'getByGroup']);
+    Route::get('settings/inventory', [SystemSettingController::class, 'getInventorySettings']);
+    Route::put('settings', [SystemSettingController::class, 'update']);
+    Route::put('settings/batch', [SystemSettingController::class, 'updateMultiple']);
+    Route::put('settings/inventory', [SystemSettingController::class, 'updateInventorySettings']);
 
     // Routes untuk System Settings
     Route::get('settings', 'Api\Admin\SystemSettingController@index');
@@ -692,17 +699,22 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Journal Entries
         Route::post('journal-entries/{id}/post', [JournalEntryController::class, 'post']);
+        Route::post('journal-entries/generate-number', [JournalEntryController::class, 'generateNumber']);
         Route::apiResource('journal-entries', JournalEntryController::class);
 
         // Customer Receivables
+        Route::get('receivables/currency-summary', [CustomerReceivableController::class, 'currencySummary']);
         Route::get('customer-receivables/aging', [CustomerReceivableController::class, 'aging']);
         Route::apiResource('customer-receivables', CustomerReceivableController::class);
+        Route::get('receivables/{id}/statement', [CustomerReceivableController::class, 'statement']);
+        Route::get('customer-transactions', [CustomerReceivableController::class, 'customerTransactions']);
 
         // Receivable Payments
         Route::apiResource('receivable-payments', ReceivablePaymentController::class);
 
         // Vendor Payables
         Route::get('vendor-payables/aging', [VendorPayableController::class, 'aging']);
+        Route::get('vendor-payables/currency-summary', [VendorPayableController::class, 'currencySummary']);
         Route::apiResource('vendor-payables', VendorPayableController::class);
 
         // Payable Payments
@@ -721,15 +733,24 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Budgets
         Route::get('budgets/variance-report', [BudgetController::class, 'varianceReport']);
+        Route::get('budgets/available-currencies', [BudgetController::class, 'getAvailableCurrencies']);
         Route::apiResource('budgets', BudgetController::class);
 
         // Bank Accounts
         Route::apiResource('bank-accounts', BankAccountController::class);
+        Route::apiResource('bank-transactions', BankTransactionController::class);
 
         // Bank Reconciliations
+        Route::get('bank-reconciliations/summary-report', [BankReconciliationController::class, 'summaryReport']);
         Route::post('bank-reconciliations/{id}/finalize', [BankReconciliationController::class, 'finalize']);
         Route::apiResource('bank-reconciliations', BankReconciliationController::class);
         Route::apiResource('bank-reconciliations.lines', BankReconciliationController::class);
+
+        // Bank Reconciliation Lines
+        Route::get('bank-reconciliations/{id}/lines', [BankReconciliationController::class, 'lines']);
+        Route::post('bank-reconciliations/{id}/lines', [BankReconciliationController::class, 'storeLine']);
+        Route::put('bank-reconciliations/{id}/lines/{lineId}', [BankReconciliationController::class, 'updateLine']);
+        Route::delete('bank-reconciliations/{id}/lines/{lineId}', [BankReconciliationController::class, 'destroyLine']);
 
         // Financial Reports
         Route::prefix('reports')->group(function () {

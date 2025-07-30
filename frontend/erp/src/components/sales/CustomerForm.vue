@@ -34,6 +34,16 @@
                 {{ errors.name }}
               </div>
             </div>
+
+            <div class="form-group">
+              <label for="payment_term">Payment Term</label>
+              <input
+                type="text"
+                id="payment_term"
+                v-model="formData.payment_term"
+                placeholder="e.g., Net 30 days"
+              />
+            </div>
           </div>
         </div>
         
@@ -171,6 +181,7 @@ import { ref, watch, onMounted } from 'vue';
       const formData = ref({
         customer_code: '',
         name: '',
+        payment_term: '',
         address: '',
         tax_id: '',
         contact_person: '',
@@ -189,6 +200,7 @@ import { ref, watch, onMounted } from 'vue';
           formData.value = {
             customer_code: props.customer.customer_code || '',
             name: props.customer.name || '',
+            payment_term: props.customer.payment_term || '',
             address: props.customer.address || '',
             tax_id: props.customer.tax_id || '',
             contact_person: props.customer.contact_person || '',

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Accounting;
 
+use App\Http\Controllers\Controller;
 use App\Models\Accounting\CustomerReceivable;
 use App\Models\Accounting\ReceivablePayment;
 use App\Models\Accounting\JournalEntry;
@@ -33,9 +34,16 @@ class ReceivablePaymentController extends Controller
             $query->whereBetween('payment_date', [$request->from_date, $request->to_date]);
         }
         
-        // Filter by currency
-        if ($request->has('currency')) {
-            $query->where('currency', $request->currency);
+        // Filter by payment currency
+        if ($request->has('payment_currency')) {
+            $query->where('payment_currency', $request->payment_currency);
+        }
+        
+        // Filter by customer
+        if ($request->has('customer_id')) {
+            $query->whereHas('customerReceivable', function($q) use ($request) {
+                $q->where('customer_id', $request->customer_id);
+            });
         }
         
         $payments = $query->orderBy('payment_date', 'desc')
@@ -56,14 +64,15 @@ class ReceivablePaymentController extends Controller
             'receivable_id' => 'required|exists:CustomerReceivable,receivable_id',
             'payment_date' => 'required|date',
             'amount' => 'required|numeric|min:0.01',
-            'currency' => 'required|string|size:3',
-            'exchange_rate' => 'required_if:currency,!=,USD|numeric|min:0',
+            'payment_currency' => 'required|string|size:3',
+            'exchange_rate' => 'nullable|numeric|min:0',
             'payment_method' => 'required|string|max:50',
             'reference_number' => 'required|string|max:50',
             'create_journal_entry' => 'boolean',
             'cash_account_id' => 'required_if:create_journal_entry,true|exists:ChartOfAccount,account_id',
             'receivable_account_id' => 'required_if:create_journal_entry,true|exists:ChartOfAccount,account_id',
-            'exchange_gain_loss_account_id' => 'required_if:currency,!=,USD|exists:ChartOfAccount,account_id'
+            'exchange_gain_loss_account_id' => 'nullable|exists:ChartOfAccount,account_id',
+            'notes' => 'nullable|string|max:500'
         ]);
 
         if ($validator->fails()) {
@@ -83,182 +92,93 @@ class ReceivablePaymentController extends Controller
         try {
             DB::beginTransaction();
             
-            // Get exchange rate (if not provided and not in base currency)
-            $exchangeRate = $request->exchange_rate;
+            // Get base currency
             $baseCurrency = config('app.base_currency', 'USD');
-            $receivableCurrency = $receivable->currency ?? $baseCurrency;
+            $paymentCurrency = $request->payment_currency;
+            $receivableCurrency = $receivable->currency_code ?? $baseCurrency;
             
-            if (!$exchangeRate && $request->currency !== $baseCurrency) {
-                // Try to get from ExchangeRate model
-                $rateRecord = ExchangeRate::where('from_currency', $request->currency)
-                    ->where('to_currency', $baseCurrency)
-                    ->where('rate_date', '<=', $request->payment_date)
-                    ->orderBy('rate_date', 'desc')
-                    ->first();
-                
-                if ($rateRecord) {
-                    $exchangeRate = $rateRecord->rate;
+            // Get exchange rate for payment currency to base currency
+            $exchangeRateToBase = $this->getExchangeRate($paymentCurrency, $baseCurrency, $request->payment_date);
+            if ($request->has('exchange_rate') && $request->exchange_rate > 0) {
+                $exchangeRateToBase = $request->exchange_rate;
+            }
+            
+            // Calculate receivable currency amount (amount being applied to the receivable)
+            $receivableAmount = $request->amount;
+            if ($paymentCurrency !== $receivableCurrency) {
+                // Convert payment currency to receivable currency
+                if ($receivableCurrency === $baseCurrency) {
+                    $receivableAmount = $request->amount * $exchangeRateToBase;
                 } else {
-                    return response()->json([
-                        'message' => 'Exchange rate not provided and no recent rate found'
-                    ], 422);
+                    // Convert via base currency: payment -> base -> receivable
+                    $baseAmount = $request->amount * $exchangeRateToBase;
+                    $receivableToBaseRate = $this->getExchangeRate($receivableCurrency, $baseCurrency, $request->payment_date);
+                    $receivableAmount = $baseAmount / $receivableToBaseRate;
                 }
             }
             
-            // If currency is the same as base, rate is 1
-            if ($request->currency === $baseCurrency) {
-                $exchangeRate = 1;
+            // Calculate exchange difference
+            $exchangeDifference = 0;
+            if ($paymentCurrency !== $receivableCurrency) {
+                // Original receivable amount at current exchange rate
+                $currentReceivableRate = $this->getExchangeRate($receivableCurrency, $baseCurrency, $request->payment_date);
+                $expectedBaseAmount = $receivableAmount * $currentReceivableRate;
+                $actualBaseAmount = $request->amount * $exchangeRateToBase;
+                $exchangeDifference = $actualBaseAmount - $expectedBaseAmount;
             }
             
-            // Calculate base currency amount
-            $baseCurrencyAmount = $request->amount;
-            if ($request->currency !== $baseCurrency) {
-                $baseCurrencyAmount = $request->amount * $exchangeRate;
-            }
-            
-            // Calculate exchange rate difference if the payment currency is different from receivable currency
-            $exchangeGainLoss = 0;
-            if ($request->currency !== $receivableCurrency) {
-                // Convert payment to receivable currency
-                $receivableCurrencyAmount = $baseCurrencyAmount;
-                
-                if ($receivableCurrency !== $baseCurrency) {
-                    // Get rate from receivable currency to base currency
-                    $receivableToBaseRate = 1; // Default if same as base
-                    
-                    if ($receivableCurrency !== $baseCurrency) {
-                        $receivableRateRecord = ExchangeRate::where('from_currency', $receivableCurrency)
-                            ->where('to_currency', $baseCurrency)
-                            ->where('rate_date', '<=', $request->payment_date)
-                            ->orderBy('rate_date', 'desc')
-                            ->first();
-                            
-                        if ($receivableRateRecord) {
-                            $receivableToBaseRate = $receivableRateRecord->rate;
-                        } else {
-                            return response()->json([
-                                'message' => 'Exchange rate for receivable currency not found'
-                            ], 422);
-                        }
-                    }
-                    
-                    $receivableCurrencyAmount = $baseCurrencyAmount / $receivableToBaseRate;
-                }
-                
-                // Calculate exchange gain/loss in base currency
-                $originalBaseAmount = $request->amount * $exchangeRate;
-                $exchangeGainLoss = $originalBaseAmount - $receivableCurrencyAmount;
-            }
-            
-            // Check if payment amount is valid in receivable currency
-            if ($baseCurrencyAmount > $receivable->balance) {
+            // Check if payment amount doesn't exceed receivable balance
+            if ($receivableAmount > $receivable->balance) {
                 return response()->json([
-                    'message' => 'Payment amount cannot exceed the remaining balance of ' . $receivable->balance
+                    'message' => 'Payment amount cannot exceed the remaining balance of ' . number_format($receivable->balance, 2) . ' ' . $receivableCurrency
                 ], 422);
             }
             
-            // Create payment
+            // Create payment record
             $payment = ReceivablePayment::create([
                 'receivable_id' => $request->receivable_id,
                 'payment_date' => $request->payment_date,
                 'amount' => $request->amount,
-                'currency' => $request->currency,
-                'exchange_rate' => $exchangeRate,
-                'base_currency_amount' => $baseCurrencyAmount,
                 'payment_method' => $request->payment_method,
-                'reference_number' => $request->reference_number
+                'reference_number' => $request->reference_number,
+                'payment_currency' => $paymentCurrency,
+                'exchange_rate' => $exchangeRateToBase,
+                'receivable_amount' => $receivableAmount,
+                'exchange_difference' => $exchangeDifference
             ]);
             
-            // Update receivable
-            $receivable->paid_amount += $baseCurrencyAmount;
-            $receivable->balance -= $baseCurrencyAmount;
+            // Update receivable balance (in receivable currency)
+            $receivable->paid_amount += $receivableAmount;
+            $receivable->balance -= $receivableAmount;
             
-            // Update status if fully paid
-            if ($receivable->balance <= 0) {
+            // Update status if fully paid (with small tolerance for rounding)
+            if ($receivable->balance <= 0.01) {
                 $receivable->status = 'Paid';
+                $receivable->balance = 0; // Clean up any rounding issues
             }
             
             $receivable->save();
             
             // Create journal entry if requested
             if ($request->input('create_journal_entry', false)) {
-                // Validate required account IDs
-                if (!$request->has('cash_account_id') || !$request->has('receivable_account_id')) {
-                    throw new \Exception('Cash and receivable account IDs are required');
-                }
-                
-                // For foreign currency, exchange gain/loss account is required
-                if ($request->currency !== $baseCurrency && !$request->has('exchange_gain_loss_account_id')) {
-                    throw new \Exception('Exchange gain/loss account ID is required for foreign currency payments');
-                }
-                
-                // Create journal entry
-                $journalEntry = JournalEntry::create([
-                    'journal_number' => 'RECPMT-' . date('YmdHis'),
-                    'entry_date' => $request->payment_date,
-                    'reference_type' => 'ReceivablePayment',
-                    'reference_id' => $payment->payment_id,
-                    'description' => 'Payment from ' . $receivable->customer->name . ' for invoice ' . $receivable->salesInvoice->invoice_number,
-                    'period_id' => $this->getCurrentPeriodId(),
-                    'status' => 'Posted'
-                ]);
-                
-                // Create journal entry lines
-                // Debit Cash/Bank
-                JournalEntryLine::create([
-                    'journal_id' => $journalEntry->journal_id,
-                    'account_id' => $request->cash_account_id,
-                    'debit_amount' => $baseCurrencyAmount,
-                    'credit_amount' => 0,
-                    'description' => 'Payment from ' . $receivable->customer->name,
-                    'currency' => $request->currency,
-                    'foreign_amount' => $request->currency !== $baseCurrency ? $request->amount : null
-                ]);
-                
-                // Credit Accounts Receivable
-                JournalEntryLine::create([
-                    'journal_id' => $journalEntry->journal_id,
-                    'account_id' => $request->receivable_account_id,
-                    'debit_amount' => 0,
-                    'credit_amount' => $baseCurrencyAmount,
-                    'description' => 'Payment from ' . $receivable->customer->name,
-                    'currency' => $receivableCurrency,
-                    'foreign_amount' => $receivableCurrency !== $baseCurrency ? $baseCurrencyAmount / $exchangeRate : null
-                ]);
-                
-                // Record exchange gain/loss if applicable
-                if ($exchangeGainLoss != 0 && $request->has('exchange_gain_loss_account_id')) {
-                    if ($exchangeGainLoss > 0) {
-                        // Exchange gain (credit)
-                        JournalEntryLine::create([
-                            'journal_id' => $journalEntry->journal_id,
-                            'account_id' => $request->exchange_gain_loss_account_id,
-                            'debit_amount' => 0,
-                            'credit_amount' => abs($exchangeGainLoss),
-                            'description' => 'Exchange gain on payment from ' . $receivable->customer->name
-                        ]);
-                    } else {
-                        // Exchange loss (debit)
-                        JournalEntryLine::create([
-                            'journal_id' => $journalEntry->journal_id,
-                            'account_id' => $request->exchange_gain_loss_account_id,
-                            'debit_amount' => abs($exchangeGainLoss),
-                            'credit_amount' => 0,
-                            'description' => 'Exchange loss on payment from ' . $receivable->customer->name
-                        ]);
-                    }
-                }
+                $this->createJournalEntry($payment, $receivable, $request);
             }
             
             DB::commit();
+            
+            // Load relationships for response
+            $payment->load('customerReceivable.customer');
             
             return response()->json([
                 'data' => $payment, 
                 'message' => 'Receivable payment created successfully'
             ], 201);
+            
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['message' => 'Failed to create receivable payment: ' . $e->getMessage()], 500);
+            return response()->json([
+                'message' => 'Failed to create receivable payment: ' . $e->getMessage()
+            ], 500);
         }
     }
 
@@ -270,8 +190,21 @@ class ReceivablePaymentController extends Controller
      */
     public function show($id)
     {
-        $payment = ReceivablePayment::with('customerReceivable.customer')
-            ->findOrFail($id);
+        $payment = ReceivablePayment::with([
+            'customerReceivable.customer', 
+            'customerReceivable.salesInvoice'
+        ])->findOrFail($id);
+        
+        // Add currency conversion info
+        $baseCurrency = config('app.base_currency', 'USD');
+        $payment->base_currency_amount = $payment->amount * $payment->exchange_rate;
+        $payment->conversion_info = [
+            'base_currency' => $baseCurrency,
+            'payment_currency' => $payment->payment_currency,
+            'receivable_currency' => $payment->customerReceivable->currency_code ?? $baseCurrency,
+            'exchange_rate_used' => $payment->exchange_rate,
+            'has_exchange_difference' => abs($payment->exchange_difference) > 0.01
+        ];
         
         return response()->json(['data' => $payment], 200);
     }
@@ -290,12 +223,9 @@ class ReceivablePaymentController extends Controller
         try {
             DB::beginTransaction();
             
-            // Get base currency amount
-            $baseCurrencyAmount = $payment->base_currency_amount ?? $payment->amount;
-            
-            // Update receivable
-            $receivable->paid_amount -= $baseCurrencyAmount;
-            $receivable->balance += $baseCurrencyAmount;
+            // Update receivable (reverse the payment)
+            $receivable->paid_amount -= $payment->receivable_amount;
+            $receivable->balance += $payment->receivable_amount;
             
             // Update status
             if ($receivable->balance > 0) {
@@ -310,9 +240,8 @@ class ReceivablePaymentController extends Controller
                 ->first();
             
             if ($journalEntry) {
-                // Delete journal entry lines
+                // Delete journal entry lines first
                 JournalEntryLine::where('journal_id', $journalEntry->journal_id)->delete();
-                
                 // Delete journal entry
                 $journalEntry->delete();
             }
@@ -323,9 +252,12 @@ class ReceivablePaymentController extends Controller
             DB::commit();
             
             return response()->json(['message' => 'Receivable payment deleted successfully'], 200);
+            
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['message' => 'Failed to delete receivable payment: ' . $e->getMessage()], 500);
+            return response()->json([
+                'message' => 'Failed to delete receivable payment: ' . $e->getMessage()
+            ], 500);
         }
     }
     
@@ -339,7 +271,8 @@ class ReceivablePaymentController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'date' => 'required|date',
-            'currency' => 'required|string|size:3'
+            'from_currency' => 'required|string|size:3',
+            'to_currency' => 'nullable|string|size:3'
         ]);
 
         if ($validator->fails()) {
@@ -347,38 +280,206 @@ class ReceivablePaymentController extends Controller
         }
         
         $baseCurrency = config('app.base_currency', 'USD');
+        $toCurrency = $request->to_currency ?? $baseCurrency;
         
-        // If requesting base currency, rate is always 1
-        if ($request->currency === $baseCurrency) {
+        // If requesting same currency, rate is always 1
+        if ($request->from_currency === $toCurrency) {
             return response()->json([
                 'data' => [
-                    'currency' => $baseCurrency,
+                    'from_currency' => $request->from_currency,
+                    'to_currency' => $toCurrency,
                     'date' => $request->date,
                     'rate' => 1
                 ]
             ]);
         }
         
-        // Get latest rate before or on the requested date
-        $rate = ExchangeRate::where('from_currency', $request->currency)
-            ->where('to_currency', $baseCurrency)
-            ->where('rate_date', '<=', $request->date)
-            ->orderBy('rate_date', 'desc')
-            ->first();
+        $rate = $this->getExchangeRate($request->from_currency, $toCurrency, $request->date);
         
         if (!$rate) {
             return response()->json([
-                'message' => 'No exchange rate found for ' . $request->currency . ' on or before ' . $request->date
+                'message' => 'No exchange rate found for ' . $request->from_currency . ' to ' . $toCurrency . ' on or before ' . $request->date
             ], 404);
         }
         
         return response()->json([
             'data' => [
-                'currency' => $request->currency,
-                'date' => $rate->rate_date,
-                'rate' => $rate->rate
+                'from_currency' => $request->from_currency,
+                'to_currency' => $toCurrency,
+                'date' => $request->date,
+                'rate' => $rate
             ]
         ]);
+    }
+
+    /**
+     * Get payment summary by currency.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function getCurrencySummary(Request $request)
+    {
+        $query = ReceivablePayment::with('customerReceivable');
+        
+        // Apply filters
+        if ($request->has('from_date') && $request->has('to_date')) {
+            $query->whereBetween('payment_date', [$request->from_date, $request->to_date]);
+        }
+        
+        if ($request->has('customer_id')) {
+            $query->whereHas('customerReceivable', function($q) use ($request) {
+                $q->where('customer_id', $request->customer_id);
+            });
+        }
+        
+        $payments = $query->get();
+        
+        // Group by currency
+        $summary = $payments->groupBy('payment_currency')->map(function ($currencyPayments, $currency) {
+            $baseCurrency = config('app.base_currency', 'USD');
+            $totalAmount = $currencyPayments->sum('amount');
+            $totalReceivableAmount = $currencyPayments->sum('receivable_amount');
+            $totalExchangeDifference = $currencyPayments->sum('exchange_difference');
+            $count = $currencyPayments->count();
+            
+            // Calculate base currency equivalent
+            $baseCurrencyTotal = $currencyPayments->sum(function($payment) {
+                return $payment->amount * $payment->exchange_rate;
+            });
+            
+            return [
+                'currency' => $currency,
+                'count' => $count,
+                'total_amount' => $totalAmount,
+                'total_receivable_amount' => $totalReceivableAmount,
+                'total_exchange_difference' => $totalExchangeDifference,
+                'base_currency_total' => $baseCurrencyTotal,
+                'base_currency' => $baseCurrency
+            ];
+        });
+        
+        return response()->json([
+            'data' => $summary->values(),
+            'summary_total' => [
+                'total_currencies' => $summary->count(),
+                'base_currency_grand_total' => $summary->sum('base_currency_total'),
+                'base_currency' => config('app.base_currency', 'USD')
+            ]
+        ]);
+    }
+    
+    /**
+     * Helper method to get exchange rate.
+     *
+     * @param string $fromCurrency
+     * @param string $toCurrency  
+     * @param string $date
+     * @return float
+     */
+    private function getExchangeRate($fromCurrency, $toCurrency, $date)
+    {
+        if ($fromCurrency === $toCurrency) {
+            return 1.0;
+        }
+        
+        $rate = ExchangeRate::where('from_currency', $fromCurrency)
+            ->where('to_currency', $toCurrency)
+            ->where('rate_date', '<=', $date)
+            ->orderBy('rate_date', 'desc')
+            ->value('rate');
+        
+        if (!$rate) {
+            // Try reverse rate
+            $reverseRate = ExchangeRate::where('from_currency', $toCurrency)
+                ->where('to_currency', $fromCurrency)
+                ->where('rate_date', '<=', $date)
+                ->orderBy('rate_date', 'desc')
+                ->value('rate');
+                
+            if ($reverseRate && $reverseRate > 0) {
+                return 1 / $reverseRate;
+            }
+        }
+        
+        return $rate ?? 1.0;
+    }
+    
+    /**
+     * Create journal entry for the payment.
+     *
+     * @param ReceivablePayment $payment
+     * @param CustomerReceivable $receivable
+     * @param Request $request
+     * @return void
+     */
+    private function createJournalEntry($payment, $receivable, $request)
+    {
+        $baseCurrency = config('app.base_currency', 'USD');
+        $baseAmount = $payment->amount * $payment->exchange_rate;
+        
+        // Create journal entry
+        $journalEntry = JournalEntry::create([
+            'journal_number' => 'RECPMT-' . date('YmdHis'),
+            'entry_date' => $payment->payment_date,
+            'reference_type' => 'ReceivablePayment',
+            'reference_id' => $payment->payment_id,
+            'description' => 'Payment from ' . $receivable->customer->name . ' - ' . $payment->reference_number,
+            'period_id' => $this->getCurrentPeriodId(),
+            'status' => 'Posted'
+        ]);
+        
+        // Debit Cash/Bank Account
+        JournalEntryLine::create([
+            'journal_id' => $journalEntry->journal_id,
+            'account_id' => $request->cash_account_id,
+            'debit_amount' => $baseAmount,
+            'credit_amount' => 0,
+            'description' => 'Payment received from ' . $receivable->customer->name,
+            'currency' => $payment->payment_currency,
+            'foreign_amount' => $payment->payment_currency !== $baseCurrency ? $payment->amount : null
+        ]);
+        
+        // Credit Accounts Receivable
+        $receivableCurrency = $receivable->currency_code ?? $baseCurrency;
+        $receivableBaseAmount = $payment->receivable_amount;
+        if ($receivableCurrency !== $baseCurrency) {
+            $receivableRate = $this->getExchangeRate($receivableCurrency, $baseCurrency, $payment->payment_date);
+            $receivableBaseAmount = $payment->receivable_amount * $receivableRate;
+        }
+        
+        JournalEntryLine::create([
+            'journal_id' => $journalEntry->journal_id,
+            'account_id' => $request->receivable_account_id,
+            'debit_amount' => 0,
+            'credit_amount' => $receivableBaseAmount,
+            'description' => 'Payment applied to receivable',
+            'currency' => $receivableCurrency,
+            'foreign_amount' => $receivableCurrency !== $baseCurrency ? $payment->receivable_amount : null
+        ]);
+        
+        // Record exchange gain/loss if applicable
+        if (abs($payment->exchange_difference) > 0.01 && $request->has('exchange_gain_loss_account_id')) {
+            if ($payment->exchange_difference > 0) {
+                // Exchange gain (credit)
+                JournalEntryLine::create([
+                    'journal_id' => $journalEntry->journal_id,
+                    'account_id' => $request->exchange_gain_loss_account_id,
+                    'debit_amount' => 0,
+                    'credit_amount' => abs($payment->exchange_difference),
+                    'description' => 'Exchange gain on payment'
+                ]);
+            } else {
+                // Exchange loss (debit)
+                JournalEntryLine::create([
+                    'journal_id' => $journalEntry->journal_id,
+                    'account_id' => $request->exchange_gain_loss_account_id,
+                    'debit_amount' => abs($payment->exchange_difference),
+                    'credit_amount' => 0,
+                    'description' => 'Exchange loss on payment'
+                ]);
+            }
+        }
     }
     
     /**
