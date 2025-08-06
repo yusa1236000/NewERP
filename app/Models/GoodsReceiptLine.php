@@ -84,20 +84,20 @@ class GoodsReceiptLine extends Model
         if (!$poLine) {
             return 0;
         }
-        
+
         $query = self::where('po_line_id', $poLineId)
-            ->whereHas('goodsReceipt', function($query) {
+            ->whereHas('goodsReceipt', function ($query) {
                 $query->where('status', 'confirmed');
             });
-            
+
         if ($excludeReceiptId) {
-            $query->whereHas('goodsReceipt', function($query) use ($excludeReceiptId) {
+            $query->whereHas('goodsReceipt', function ($query) use ($excludeReceiptId) {
                 $query->where('receipt_id', '<>', $excludeReceiptId);
             });
         }
-        
+
         $receivedQuantity = $query->sum('received_quantity');
-            
+
         return $poLine->quantity - $receivedQuantity;
     }
 }

@@ -24,6 +24,8 @@ class RoutingOperation extends Model
         'operation_name',
         'work_flow',
         'models',
+        'dimensi',
+        'toleransi',
         'sequence',
         'setup_time',
         'run_time',

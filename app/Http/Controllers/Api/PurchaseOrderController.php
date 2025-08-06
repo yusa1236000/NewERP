@@ -14,50 +14,60 @@ use App\Models\PRLine;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+// TAMBAHKAN IMPORT STATEMENTS BERIKUT UNTUK PHPSPREADSHEET:
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use Illuminate\Support\Facades\Log;
+
+// TAMBAHKAN JUGA IMPORTS UNTUK MODELS YANG DIGUNAKAN DI downloadTemplate:
+use App\Models\VendorContract; // Jika digunakan dalam method downloadTemplate
 
 class PurchaseOrderController extends Controller
 {
     protected $poNumberGenerator;
-    
+
     public function __construct(PONumberGenerator $poNumberGenerator)
     {
         $this->poNumberGenerator = $poNumberGenerator;
     }
-    
+
     public function index(Request $request)
     {
         $query = PurchaseOrder::with(['vendor']);
-        
+
         // Apply filters
-if ($request->filled('status')) {
-    if (is_array($request->status)) {
-        $query->whereIn('status', $request->status);
-    } else {
-        $query->where('status', $request->status);
-    }
-}
-        
+        if ($request->filled('status')) {
+            if (is_array($request->status)) {
+                $query->whereIn('status', $request->status);
+            } else {
+                $query->where('status', $request->status);
+            }
+        }
+
         if ($request->filled('vendor_id')) {
             $query->where('vendor_id', $request->vendor_id);
         }
-        
+
         if ($request->filled('date_from')) {
             $query->whereDate('po_date', '>=', $request->date_from);
         }
-        
+
         if ($request->filled('date_to')) {
             $query->whereDate('po_date', '<=', $request->date_to);
         }
-        
+
         if ($request->has('search')) {
             $search = $request->search;
             $query->where('po_number', 'like', "%{$search}%");
         }
-        
+
         // Filter untuk Outstanding PO
         if ($request->has('has_outstanding') && $request->has_outstanding) {
-            $query->whereHas('lines', function($q) {
-$q->whereRaw('quantity > (
+            $query->whereHas('lines', function ($q) {
+                $q->whereRaw('quantity > (
                     SELECT COALESCE(SUM(grl.received_quantity), 0)
                     FROM goods_receipt_lines grl
                     JOIN goods_receipts gr ON grl.receipt_id = gr.receipt_id
@@ -66,16 +76,16 @@ $q->whereRaw('quantity > (
                 )');
             });
         }
-        
+
         // Apply sorting
         $sortField = $request->input('sort_field', 'po_date');
         $sortDirection = $request->input('sort_direction', 'desc');
         $query->orderBy($sortField, $sortDirection);
-        
+
         // Pagination
         $perPage = $request->input('per_page', 15);
         $purchaseOrders = $query->paginate($perPage);
-        
+
         return response()->json([
             'status' => 'success',
             'data' => $purchaseOrders
@@ -92,45 +102,45 @@ $q->whereRaw('quantity > (
     {
         try {
             DB::beginTransaction();
-            
+
             // Generate PO number
             $poNumber = $this->poNumberGenerator->generate();
-            
+
             // Get the vendor to check for default currency
             $vendor = Vendor::find($request->vendor_id);
-            
+
             // Determine currency to use (from request, vendor preference, or system default)
             $currencyCode = $request->currency_code ?? $vendor->preferred_currency ?? config('app.base_currency', 'USD');
             $baseCurrency = config('app.base_currency', 'USD');
-            
+
             // Get exchange rate
             $exchangeRate = 1.0; // Default for base currency
-            
+
             if ($currencyCode !== $baseCurrency) {
                 $rate = CurrencyRate::where('from_currency', $currencyCode)
                     ->where('to_currency', $baseCurrency)
                     ->where('is_active', true)
                     ->where('effective_date', '<=', $request->po_date)
-                    ->where(function($query) use ($request) {
+                    ->where(function ($query) use ($request) {
                         $query->where('end_date', '>=', $request->po_date)
-                              ->orWhereNull('end_date');
+                            ->orWhereNull('end_date');
                     })
                     ->orderBy('effective_date', 'desc')
                     ->first();
-                    
+
                 if (!$rate) {
                     // Try to find a reverse rate
                     $reverseRate = CurrencyRate::where('from_currency', $baseCurrency)
                         ->where('to_currency', $currencyCode)
                         ->where('is_active', true)
                         ->where('effective_date', '<=', $request->po_date)
-                        ->where(function($query) use ($request) {
+                        ->where(function ($query) use ($request) {
                             $query->where('end_date', '>=', $request->po_date)
-                                  ->orWhereNull('end_date');
+                                ->orWhereNull('end_date');
                         })
                         ->orderBy('effective_date', 'desc')
                         ->first();
-                        
+
                     if ($reverseRate) {
                         $exchangeRate = 1 / $reverseRate->rate;
                     } else {
@@ -144,24 +154,24 @@ $q->whereRaw('quantity > (
                     $exchangeRate = $rate->rate;
                 }
             }
-            
+
             // Calculate totals in document currency
             $subtotal = 0;
             $taxTotal = 0;
-            
+
             foreach ($request->lines as $line) {
                 $lineSubtotal = $line['unit_price'] * $line['quantity'];
                 $lineTax = isset($line['tax']) ? $line['tax'] : 0;
                 $subtotal += $lineSubtotal;
                 $taxTotal += $lineTax;
             }
-            
+
             $totalAmount = $subtotal + $taxTotal;
-            
+
             // Calculate totals in base currency
             $baseCurrencyTotal = $totalAmount * $exchangeRate;
             $baseCurrencyTax = $taxTotal * $exchangeRate;
-            
+
             // Create purchase order
             $purchaseOrder = PurchaseOrder::create([
                 'po_number' => $poNumber,
@@ -179,19 +189,19 @@ $q->whereRaw('quantity > (
                 'base_currency_tax' => $baseCurrencyTax,
                 'base_currency' => $baseCurrency
             ]);
-            
+
             // Create PO lines
             foreach ($request->lines as $line) {
                 $lineSubtotal = $line['unit_price'] * $line['quantity'];
                 $lineTax = isset($line['tax']) ? $line['tax'] : 0;
                 $lineTotal = $lineSubtotal + $lineTax;
-                
+
                 // Calculate base currency amounts
                 $baseUnitPrice = $line['unit_price'] * $exchangeRate;
                 $baseSubtotal = $lineSubtotal * $exchangeRate;
                 $baseTax = $lineTax * $exchangeRate;
                 $baseTotal = $lineTotal * $exchangeRate;
-                
+
                 $purchaseOrder->lines()->create([
                     'item_id' => $line['item_id'],
                     'unit_price' => $line['unit_price'],
@@ -207,24 +217,23 @@ $q->whereRaw('quantity > (
                     'base_currency_total' => $baseTotal
                 ]);
             }
-            
+
             // If quotation_id is provided, mark quotation as accepted
             if (isset($request->quotation_id)) {
                 $quotation = VendorQuotation::findOrFail($request->quotation_id);
                 $quotation->update(['status' => 'accepted']);
             }
-            
+
             DB::commit();
-            
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Purchase Order created successfully',
                 'data' => $purchaseOrder->load(['vendor', 'lines.item', 'lines.unitOfMeasure'])
             ], 201);
-            
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to create Purchase Order',
@@ -236,7 +245,7 @@ $q->whereRaw('quantity > (
     public function show(PurchaseOrder $purchaseOrder)
     {
         $purchaseOrder->load(['vendor', 'lines.item', 'lines.unitOfMeasure', 'goodsReceipts']);
-        
+
         return response()->json([
             'status' => 'success',
             'data' => $purchaseOrder
@@ -259,43 +268,43 @@ $q->whereRaw('quantity > (
                 'message' => 'Only draft Purchase Orders can be updated'
             ], 400);
         }
-        
+
         try {
             DB::beginTransaction();
-            
+
             // Determine currency to use
             $currencyCode = $request->currency_code ?? $purchaseOrder->currency_code;
             $baseCurrency = config('app.base_currency', 'USD');
-            
+
             // Get exchange rate if the currency has changed
             $exchangeRate = $purchaseOrder->exchange_rate;
-            
+
             if ($currencyCode !== $purchaseOrder->currency_code) {
                 if ($currencyCode !== $baseCurrency) {
                     $rate = CurrencyRate::where('from_currency', $currencyCode)
                         ->where('to_currency', $baseCurrency)
                         ->where('is_active', true)
                         ->where('effective_date', '<=', $request->po_date)
-                        ->where(function($query) use ($request) {
+                        ->where(function ($query) use ($request) {
                             $query->where('end_date', '>=', $request->po_date)
                                 ->orWhereNull('end_date');
                         })
                         ->orderBy('effective_date', 'desc')
                         ->first();
-                        
+
                     if (!$rate) {
                         // Try to find a reverse rate
                         $reverseRate = CurrencyRate::where('from_currency', $baseCurrency)
                             ->where('to_currency', $currencyCode)
                             ->where('is_active', true)
                             ->where('effective_date', '<=', $request->po_date)
-                            ->where(function($query) use ($request) {
+                            ->where(function ($query) use ($request) {
                                 $query->where('end_date', '>=', $request->po_date)
                                     ->orWhereNull('end_date');
                             })
                             ->orderBy('effective_date', 'desc')
                             ->first();
-                            
+
                         if ($reverseRate) {
                             $exchangeRate = 1 / $reverseRate->rate;
                         } else {
@@ -312,24 +321,24 @@ $q->whereRaw('quantity > (
                     $exchangeRate = 1.0; // Base currency
                 }
             }
-            
+
             // Calculate totals
             $subtotal = 0;
             $taxTotal = 0;
-            
+
             foreach ($request->lines as $line) {
                 $lineSubtotal = $line['unit_price'] * $line['quantity'];
                 $lineTax = isset($line['tax']) ? $line['tax'] : 0;
                 $subtotal += $lineSubtotal;
                 $taxTotal += $lineTax;
             }
-            
+
             $totalAmount = $subtotal + $taxTotal;
-            
+
             // Calculate totals in base currency
             $baseCurrencyTotal = $totalAmount * $exchangeRate;
             $baseCurrencyTax = $taxTotal * $exchangeRate;
-            
+
             // Update purchase order
             $purchaseOrder->update([
                 'po_date' => $request->po_date,
@@ -344,24 +353,24 @@ $q->whereRaw('quantity > (
                 'base_currency_total' => $baseCurrencyTotal,
                 'base_currency_tax' => $baseCurrencyTax
             ]);
-            
+
             // Update PO lines
             if ($request->has('lines')) {
                 // Delete existing lines
                 $purchaseOrder->lines()->delete();
-                
+
                 // Create new lines
                 foreach ($request->lines as $line) {
                     $lineSubtotal = $line['unit_price'] * $line['quantity'];
                     $lineTax = isset($line['tax']) ? $line['tax'] : 0;
                     $lineTotal = $lineSubtotal + $lineTax;
-                    
+
                     // Calculate base currency amounts
                     $baseUnitPrice = $line['unit_price'] * $exchangeRate;
                     $baseSubtotal = $lineSubtotal * $exchangeRate;
                     $baseTax = $lineTax * $exchangeRate;
                     $baseTotal = $lineTotal * $exchangeRate;
-                    
+
                     $purchaseOrder->lines()->create([
                         'item_id' => $line['item_id'],
                         'unit_price' => $line['unit_price'],
@@ -378,18 +387,17 @@ $q->whereRaw('quantity > (
                     ]);
                 }
             }
-            
+
             DB::commit();
-            
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Purchase Order updated successfully',
                 'data' => $purchaseOrder->load(['vendor', 'lines.item', 'lines.unitOfMeasure'])
             ]);
-            
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to update Purchase Order',
@@ -407,26 +415,26 @@ $q->whereRaw('quantity > (
                 'message' => 'Only draft Purchase Orders can be deleted'
             ], 400);
         }
-        
+
         $purchaseOrder->lines()->delete();
         $purchaseOrder->delete();
-        
+
         return response()->json([
             'status' => 'success',
             'message' => 'Purchase Order deleted successfully'
         ]);
     }
-    
+
     public function updateStatus(Request $request, PurchaseOrder $purchaseOrder)
     {
         $request->validate([
             'status' => 'required|in:draft,submitted,approved,sent,partial,received,completed,canceled'
         ]);
-        
+
         // Additional validations based on status transition
         $currentStatus = $purchaseOrder->status;
         $newStatus = $request->status;
-        
+
         $validTransitions = [
             'draft' => ['submitted', 'canceled'],
             'submitted' => ['approved', 'canceled'],
@@ -437,23 +445,23 @@ $q->whereRaw('quantity > (
             'completed' => ['canceled'],
             'canceled' => []
         ];
-        
+
         if (!in_array($newStatus, $validTransitions[$currentStatus])) {
             return response()->json([
                 'status' => 'error',
                 'message' => "Status cannot be changed from {$currentStatus} to {$newStatus}"
             ], 400);
         }
-        
+
         $purchaseOrder->update(['status' => $newStatus]);
-        
+
         return response()->json([
             'status' => 'success',
             'message' => 'Purchase Order status updated successfully',
             'data' => $purchaseOrder
         ]);
     }
-    
+
     public function createFromQuotation(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -461,7 +469,7 @@ $q->whereRaw('quantity > (
             'po_date' => 'required|date',
             'expected_delivery' => 'nullable|date|after_or_equal:po_date',
             'payment_terms' => 'nullable|string|max:255',
-            'delivery_terms' => 'nullable|string|max:255', 
+            'delivery_terms' => 'nullable|string|max:255',
             'currency_code' => 'nullable|string|size:3',
             'exchange_rate' => 'nullable|numeric|min:0.000001',
             'notes' => 'nullable|string|max:1000'
@@ -474,10 +482,10 @@ $q->whereRaw('quantity > (
                 'errors' => $validator->errors()
             ], 422);
         }
-        
+
         $quotation = VendorQuotation::with(['lines.item', 'lines.unitOfMeasure', 'vendor', 'requestForQuotation'])
-                                ->findOrFail($request->quotation_id);
-        
+            ->findOrFail($request->quotation_id);
+
         // Check if quotation can be used (allow both accepted and received status for flexibility)
         if (!in_array($quotation->status, ['accepted', 'received'])) {
             return response()->json([
@@ -485,27 +493,27 @@ $q->whereRaw('quantity > (
                 'message' => 'Purchase Order can only be created from accepted or received quotations'
             ], 400);
         }
-        
+
         try {
             DB::beginTransaction();
-            
+
             // Generate PO number
             $poNumber = $this->poNumberGenerator->generate();
-            
+
             // Get vendor for defaults
             $vendor = $quotation->vendor;
-            
+
             // Determine currency to use (priority: request > quotation > vendor > system default)
-            $currencyCode = $request->currency_code 
-                        ?? $quotation->currency_code 
-                        ?? $vendor->preferred_currency 
-                        ?? config('app.base_currency', 'USD');
-            
+            $currencyCode = $request->currency_code
+                ?? $quotation->currency_code
+                ?? $vendor->preferred_currency
+                ?? config('app.base_currency', 'USD');
+
             $baseCurrency = config('app.base_currency', 'USD');
-            
+
             // Get exchange rate
             $exchangeRate = $request->exchange_rate;
-            
+
             if (!$exchangeRate) {
                 if ($currencyCode === $baseCurrency) {
                     $exchangeRate = 1.0;
@@ -519,26 +527,26 @@ $q->whereRaw('quantity > (
                             ->where('to_currency', $baseCurrency)
                             ->where('is_active', true)
                             ->where('effective_date', '<=', $request->po_date)
-                            ->where(function($query) use ($request) {
+                            ->where(function ($query) use ($request) {
                                 $query->where('end_date', '>=', $request->po_date)
                                     ->orWhereNull('end_date');
                             })
                             ->orderBy('effective_date', 'desc')
                             ->first();
-                            
+
                         if (!$rate) {
                             // Try reverse rate
                             $reverseRate = CurrencyRate::where('from_currency', $baseCurrency)
                                 ->where('to_currency', $currencyCode)
                                 ->where('is_active', true)
                                 ->where('effective_date', '<=', $request->po_date)
-                                ->where(function($query) use ($request) {
+                                ->where(function ($query) use ($request) {
                                     $query->where('end_date', '>=', $request->po_date)
                                         ->orWhereNull('end_date');
                                 })
                                 ->orderBy('effective_date', 'desc')
                                 ->first();
-                                
+
                             if ($reverseRate) {
                                 $exchangeRate = 1 / $reverseRate->rate;
                             } else {
@@ -551,33 +559,33 @@ $q->whereRaw('quantity > (
                     }
                 }
             }
-            
+
             // Calculate totals from quotation lines
             $subtotal = 0;
             $taxTotal = 0;
-            
+
             foreach ($quotation->lines as $line) {
                 $lineSubtotal = $line->unit_price * $line->quantity;
                 $subtotal += $lineSubtotal;
                 // Tax calculation can be added here if needed
             }
-            
+
             $totalAmount = $subtotal + $taxTotal;
-            
+
             // Calculate base currency amounts
             $baseCurrencyTotal = $totalAmount * $exchangeRate;
             $baseCurrencyTax = $taxTotal * $exchangeRate;
-            
+
             // Determine values with fallbacks
-            $paymentTerms = $request->payment_terms 
-                        ?? $quotation->payment_terms 
-                        ?? ($vendor->payment_term ? "Net {$vendor->payment_term}" : null);
-            
-            $deliveryTerms = $request->delivery_terms 
-                        ?? $quotation->delivery_terms;
-            
+            $paymentTerms = $request->payment_terms
+                ?? $quotation->payment_terms
+                ?? ($vendor->payment_term ? "Net {$vendor->payment_term}" : null);
+
+            $deliveryTerms = $request->delivery_terms
+                ?? $quotation->delivery_terms;
+
             $notes = $request->notes ?? $quotation->notes;
-            
+
             // Create purchase order
             $purchaseOrder = PurchaseOrder::create([
                 'po_number' => $poNumber,
@@ -596,19 +604,19 @@ $q->whereRaw('quantity > (
                 'base_currency' => $baseCurrency,
                 'notes' => $notes
             ]);
-            
+
             // Create PO lines from quotation lines
             foreach ($quotation->lines as $line) {
                 $lineSubtotal = $line->unit_price * $line->quantity;
                 $lineTax = 0; // Can be calculated based on item tax settings
                 $lineTotal = $lineSubtotal + $lineTax;
-                
+
                 // Calculate base currency amounts for line
                 $baseUnitPrice = $line->unit_price * $exchangeRate;
                 $baseSubtotal = $lineSubtotal * $exchangeRate;
                 $baseTax = $lineTax * $exchangeRate;
                 $baseTotal = $lineTotal * $exchangeRate;
-                
+
                 $purchaseOrder->lines()->create([
                     'item_id' => $line->item_id,
                     'unit_price' => $line->unit_price,
@@ -623,32 +631,31 @@ $q->whereRaw('quantity > (
                     'base_currency_total' => $baseTotal
                 ]);
             }
-            
+
             // Mark quotation as accepted if it was in received status
             if ($quotation->status === 'received') {
                 $quotation->update(['status' => 'accepted']);
             }
-            
+
             // Create stock reservations if needed (optional feature)
             $this->createStockReservations($purchaseOrder);
-            
+
             DB::commit();
-            
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Purchase Order created from quotation successfully',
                 'data' => $purchaseOrder->load(['vendor', 'lines.item', 'lines.unitOfMeasure'])
             ], 201);
-            
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             \Log::error('Error creating PO from quotation', [
                 'quotation_id' => $request->quotation_id,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to create Purchase Order from quotation',
@@ -656,7 +663,7 @@ $q->whereRaw('quantity > (
             ], 500);
         }
     }
-    
+
     /**
      * Convert purchase order currency.
      *
@@ -673,7 +680,7 @@ $q->whereRaw('quantity > (
                 'message' => 'Only draft Purchase Orders can have their currency converted'
             ], 400);
         }
-        
+
         $validator = Validator::make($request->all(), [
             'currency_code' => 'required|string|size:3',
             'use_exchange_rate_date' => 'nullable|boolean'
@@ -685,7 +692,7 @@ $q->whereRaw('quantity > (
                 'errors' => $validator->errors()
             ], 422);
         }
-        
+
         // Don't convert if already in the target currency
         if ($purchaseOrder->currency_code === $request->currency_code) {
             return response()->json([
@@ -694,42 +701,42 @@ $q->whereRaw('quantity > (
                 'data' => $purchaseOrder
             ]);
         }
-        
+
         $baseCurrency = config('app.base_currency', 'USD');
-        
+
         try {
             DB::beginTransaction();
-            
+
             // Determine which exchange rate to use
             $useExchangeRateDate = $request->use_exchange_rate_date ?? true;
             $exchangeRateDate = $useExchangeRateDate ? $purchaseOrder->po_date : now()->format('Y-m-d');
-            
+
             // Get exchange rate from base currency to target currency
             if ($request->currency_code !== $baseCurrency) {
                 $rate = CurrencyRate::where('from_currency', $baseCurrency)
                     ->where('to_currency', $request->currency_code)
                     ->where('is_active', true)
                     ->where('effective_date', '<=', $exchangeRateDate)
-                    ->where(function($query) use ($exchangeRateDate) {
+                    ->where(function ($query) use ($exchangeRateDate) {
                         $query->where('end_date', '>=', $exchangeRateDate)
                             ->orWhereNull('end_date');
                     })
                     ->orderBy('effective_date', 'desc')
                     ->first();
-                    
+
                 if (!$rate) {
                     // Try to find a reverse rate
                     $reverseRate = CurrencyRate::where('from_currency', $request->currency_code)
                         ->where('to_currency', $baseCurrency)
                         ->where('is_active', true)
                         ->where('effective_date', '<=', $exchangeRateDate)
-                        ->where(function($query) use ($exchangeRateDate) {
+                        ->where(function ($query) use ($exchangeRateDate) {
                             $query->where('end_date', '>=', $exchangeRateDate)
                                 ->orWhereNull('end_date');
                         })
                         ->orderBy('effective_date', 'desc')
                         ->first();
-                        
+
                     if ($reverseRate) {
                         $newExchangeRate = 1 / $reverseRate->rate;
                     } else {
@@ -746,14 +753,14 @@ $q->whereRaw('quantity > (
                 // Converting to base currency
                 $newExchangeRate = 1.0;
             }
-            
+
             // Calculate conversion factor between old and new currencies
             $conversionFactor = $newExchangeRate / $purchaseOrder->exchange_rate;
-            
+
             // Update order totals
             $newTotalAmount = $purchaseOrder->base_currency_total / $newExchangeRate;
             $newTaxAmount = $purchaseOrder->base_currency_tax / $newExchangeRate;
-            
+
             // Update purchase order
             $purchaseOrder->update([
                 'currency_code' => $request->currency_code,
@@ -761,14 +768,14 @@ $q->whereRaw('quantity > (
                 'total_amount' => $newTotalAmount,
                 'tax_amount' => $newTaxAmount
             ]);
-            
+
             // Update all line items
             foreach ($purchaseOrder->lines as $line) {
                 $newUnitPrice = $line->base_currency_unit_price / $newExchangeRate;
                 $newSubtotal = $line->base_currency_subtotal / $newExchangeRate;
                 $newTax = $line->base_currency_tax / $newExchangeRate;
                 $newTotal = $line->base_currency_total / $newExchangeRate;
-                
+
                 $line->update([
                     'unit_price' => $newUnitPrice,
                     'subtotal' => $newSubtotal,
@@ -776,18 +783,17 @@ $q->whereRaw('quantity > (
                     'total' => $newTotal
                 ]);
             }
-            
+
             DB::commit();
-            
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Purchase Order currency converted successfully',
                 'data' => $purchaseOrder->fresh()->load(['vendor', 'lines.item', 'lines.unitOfMeasure'])
             ]);
-            
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to convert Purchase Order currency',
@@ -805,13 +811,13 @@ $q->whereRaw('quantity > (
     public function showOutstanding(PurchaseOrder $purchaseOrder)
     {
         $purchaseOrder->load(['lines.item', 'goodsReceipts.lines']);
-        
+
         $outstandingLines = [];
-        
+
         foreach ($purchaseOrder->lines as $poLine) {
             // Hitung total yang sudah diterima untuk line ini
             $receivedQuantity = 0;
-            
+
             foreach ($purchaseOrder->goodsReceipts as $receipt) {
                 foreach ($receipt->lines as $receiptLine) {
                     if ($receiptLine->po_line_id === $poLine->line_id) {
@@ -819,10 +825,10 @@ $q->whereRaw('quantity > (
                     }
                 }
             }
-            
+
             // Hitung outstanding
             $outstandingQuantity = $poLine->quantity - $receivedQuantity;
-            
+
             // Jika masih ada outstanding, tambahkan ke hasil
             if ($outstandingQuantity > 0) {
                 $outstandingLines[] = [
@@ -837,7 +843,7 @@ $q->whereRaw('quantity > (
                 ];
             }
         }
-        
+
         return response()->json([
             'status' => 'success',
             'data' => [
@@ -858,9 +864,9 @@ $q->whereRaw('quantity > (
      */
     public function getAllOutstanding(Request $request)
     {
-$query = PurchaseOrder::with(['vendor', 'lines.item'])
+        $query = PurchaseOrder::with(['vendor', 'lines.item'])
             ->whereIn('status', ['sent', 'partial']) // Hanya PO yang relevan
-            ->whereHas('lines', function($q) {
+            ->whereHas('lines', function ($q) {
                 $q->whereRaw('quantity > (
                     SELECT COALESCE(SUM(grl.received_quantity), 0)
                     FROM goods_receipt_lines grl
@@ -869,50 +875,50 @@ $query = PurchaseOrder::with(['vendor', 'lines.item'])
                     AND gr.status = \'confirmed\'
                 )');
             });
-        
+
         // Filter tambahan
         if ($request->filled('vendor_id')) {
             $query->where('vendor_id', $request->vendor_id);
         }
-        
+
         if ($request->filled('expected_from')) {
             $query->where('expected_delivery', '>=', $request->expected_from);
         }
-        
+
         if ($request->filled('expected_to')) {
             $query->where('expected_delivery', '<=', $request->expected_to);
         }
-        
+
         // Sorting
         $sortField = $request->input('sort_field', 'expected_delivery');
         $sortDirection = $request->input('sort_direction', 'asc');
         $query->orderBy($sortField, $sortDirection);
-        
+
         // Pagination
         $perPage = $request->input('per_page', 15);
         $purchaseOrders = $query->paginate($perPage);
-        
+
         // Hitung outstanding untuk setiap PO
-        $result = $purchaseOrders->map(function($po) {
+        $result = $purchaseOrders->map(function ($po) {
             $outstandingValue = 0;
             $outstandingItems = 0;
-            
+
             foreach ($po->lines as $line) {
                 // Hitung received quantity
-$receivedQuantity = DB::table('goods_receipt_lines')
+                $receivedQuantity = DB::table('goods_receipt_lines')
                     ->join('goods_receipts', 'goods_receipt_lines.receipt_id', '=', 'goods_receipts.receipt_id')
                     ->where('goods_receipt_lines.po_line_id', $line->line_id)
                     ->where('goods_receipts.status', 'confirmed')
                     ->sum('goods_receipt_lines.received_quantity');
-                
+
                 $outstanding = $line->quantity - $receivedQuantity;
-                
+
                 if ($outstanding > 0) {
                     $outstandingValue += $outstanding * $line->unit_price;
                     $outstandingItems++;
                 }
             }
-            
+
             return [
                 'po_id' => $po->po_id,
                 'po_number' => $po->po_number,
@@ -922,12 +928,12 @@ $receivedQuantity = DB::table('goods_receipt_lines')
                 'status' => $po->status,
                 'total_value' => $po->total_amount,
                 'outstanding_value' => $outstandingValue,
-                'outstanding_percentage' => $po->total_amount > 0 ? 
+                'outstanding_percentage' => $po->total_amount > 0 ?
                     round(($outstandingValue / $po->total_amount) * 100, 2) : 0,
                 'outstanding_items' => $outstandingItems
             ];
         });
-        
+
         return response()->json([
             'status' => 'success',
             'data' => [
@@ -941,7 +947,7 @@ $receivedQuantity = DB::table('goods_receipt_lines')
             ]
         ]);
     }
-    
+
     /**
      * Get detailed outstanding report with item details.
      *
@@ -957,11 +963,11 @@ $receivedQuantity = DB::table('goods_receipt_lines')
         $dateTo = $request->input('date_to');
         $expectedFrom = $request->input('expected_from');
         $expectedTo = $request->input('expected_to');
-        
+
         // Get all POs with outstanding items
         $query = PurchaseOrder::with(['vendor', 'lines.item'])
             ->whereIn('status', ['sent', 'partial']) // Hanya PO yang relevan
-            ->whereHas('lines', function($q) {
+            ->whereHas('lines', function ($q) {
                 $q->whereRaw('quantity > (
                     SELECT COALESCE(SUM(grl.received_quantity), 0)
                     FROM goods_receipt_lines grl
@@ -970,40 +976,40 @@ $receivedQuantity = DB::table('goods_receipt_lines')
                     AND gr.status = "confirmed"
                 )');
             });
-        
+
         // Apply filters
         if (!empty($vendorIds)) {
             $query->whereIn('vendor_id', $vendorIds);
         }
-        
+
         if ($dateFrom) {
             $query->whereDate('po_date', '>=', $dateFrom);
         }
-        
+
         if ($dateTo) {
             $query->whereDate('po_date', '<=', $dateTo);
         }
-        
+
         if ($expectedFrom) {
             $query->where('expected_delivery', '>=', $expectedFrom);
         }
-        
+
         if ($expectedTo) {
             $query->where('expected_delivery', '<=', $expectedTo);
         }
-        
+
         // Filter by specific items
         if (!empty($itemIds)) {
-            $query->whereHas('lines', function($q) use ($itemIds) {
+            $query->whereHas('lines', function ($q) use ($itemIds) {
                 $q->whereIn('item_id', $itemIds);
             });
         }
-        
+
         $purchaseOrders = $query->get();
-        
+
         // Prepare report data
         $outstandingItems = [];
-        
+
         foreach ($purchaseOrders as $po) {
             foreach ($po->lines as $line) {
                 // Calculate received quantity
@@ -1012,21 +1018,21 @@ $receivedQuantity = DB::table('goods_receipt_lines')
                     ->where('goods_receipt_lines.po_line_id', $line->line_id)
                     ->where('goods_receipts.status', 'confirmed')
                     ->sum('goods_receipt_lines.received_quantity');
-                
+
                 $outstandingQuantity = $line->quantity - $receivedQuantity;
-                
+
                 // Only include if outstanding
                 if ($outstandingQuantity > 0) {
                     $item = $line->item;
-                    
+
                     // Skip if filtering by item and not in the list
                     if (!empty($itemIds) && !in_array($item->item_id, $itemIds)) {
                         continue;
                     }
-                    
+
                     // Create item key for grouping
                     $itemKey = $item->item_id;
-                    
+
                     if (!isset($outstandingItems[$itemKey])) {
                         $outstandingItems[$itemKey] = [
                             'item_id' => $item->item_id,
@@ -1037,11 +1043,11 @@ $receivedQuantity = DB::table('goods_receipt_lines')
                             'orders' => []
                         ];
                     }
-                    
+
                     // Add to total outstanding for this item
                     $outstandingItems[$itemKey]['total_outstanding'] += $outstandingQuantity;
                     $outstandingItems[$itemKey]['total_value'] += $outstandingQuantity * $line->unit_price;
-                    
+
                     // Add order details
                     $outstandingItems[$itemKey]['orders'][] = [
                         'po_id' => $po->po_id,
@@ -1060,20 +1066,20 @@ $receivedQuantity = DB::table('goods_receipt_lines')
                 }
             }
         }
-        
+
         // Convert to indexed array and sort by total outstanding quantity
         $result = array_values($outstandingItems);
-        usort($result, function($a, $b) {
+        usort($result, function ($a, $b) {
             return $b['total_outstanding'] <=> $a['total_outstanding'];
         });
-        
+
         // Calculate overall totals
         $totalOutstanding = array_sum(array_column($result, 'total_outstanding'));
         $totalValue = array_sum(array_column($result, 'total_value'));
-        $totalOrders = count(array_unique(array_merge(...array_map(function($item) {
+        $totalOrders = count(array_unique(array_merge(...array_map(function ($item) {
             return array_column($item['orders'], 'po_id');
         }, $result))));
-        
+
         return response()->json([
             'status' => 'success',
             'data' => [
@@ -1112,13 +1118,13 @@ $receivedQuantity = DB::table('goods_receipt_lines')
                 'errors' => $validator->errors()
             ], 422);
         }
-        
+
         try {
             DB::beginTransaction();
-            
+
             $pr = PurchaseRequisition::with(['lines.item', 'lines.unitOfMeasure'])
-                                    ->findOrFail($request->pr_id);
-            
+                ->findOrFail($request->pr_id);
+
             // Check PR status
             if ($pr->status !== 'approved') {
                 return response()->json([
@@ -1126,12 +1132,12 @@ $receivedQuantity = DB::table('goods_receipt_lines')
                     'message' => 'Only approved PR can be converted to PO'
                 ], 400);
             }
-            
+
             $vendor = Vendor::findOrFail($request->vendor_id);
-            
+
             // Validate pricing availability
             $pricingValidation = $this->validatePricingForPR($pr, $vendor, $request->pricing_source, $request->manual_prices ?? []);
-            
+
             if (!$pricingValidation['valid']) {
                 return response()->json([
                     'status' => 'error',
@@ -1139,21 +1145,20 @@ $receivedQuantity = DB::table('goods_receipt_lines')
                     'missing_pricing' => $pricingValidation['missing_items']
                 ], 400);
             }
-            
+
             // Generate PO
             $po = $this->createPOFromPR($pr, $vendor, $request);
-            
+
             // Update PR status
             $pr->update(['status' => 'po_created']);
-            
+
             DB::commit();
-            
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Purchase Order created successfully from PR',
                 'data' => $po->load(['vendor', 'lines.item', 'lines.unitOfMeasure'])
             ], 201);
-            
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -1185,12 +1190,12 @@ $receivedQuantity = DB::table('goods_receipt_lines')
                 'errors' => $validator->errors()
             ], 422);
         }
-        
+
         try {
             DB::beginTransaction();
-            
+
             $pr = PurchaseRequisition::with('lines')->findOrFail($request->pr_id);
-            
+
             // Check PR status
             if ($pr->status !== 'approved') {
                 return response()->json([
@@ -1198,34 +1203,33 @@ $receivedQuantity = DB::table('goods_receipt_lines')
                     'message' => 'Only approved PR can be converted to PO'
                 ], 400);
             }
-            
+
             // Validate total quantities match PR
             $this->validateQuantitySplit($pr, $request->vendor_selections);
-            
+
             // Group selections by vendor
             $vendorGroups = collect($request->vendor_selections)->groupBy('vendor_id');
-            
+
             $createdPOs = [];
-            
+
             foreach ($vendorGroups as $vendorId => $selections) {
                 $vendor = Vendor::findOrFail($vendorId);
-                
+
                 // Create PO for this vendor
                 $po = $this->createPOForVendorFromSelections($pr, $vendor, $selections->toArray());
                 $createdPOs[] = $po;
             }
-            
+
             // Update PR status
             $pr->update(['status' => 'po_created']);
-            
+
             DB::commit();
-            
+
             return response()->json([
                 'status' => 'success',
                 'message' => count($createdPOs) . ' Purchase Orders created successfully',
                 'data' => $createdPOs
             ], 201);
-            
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -1243,34 +1247,34 @@ $receivedQuantity = DB::table('goods_receipt_lines')
     {
         $missingPricing = [];
         $manualPricesMap = collect($manualPrices)->keyBy('pr_line_id');
-        
+
         foreach ($pr->lines as $line) {
             $item = $line->item;
             $hasPricing = false;
-            
+
             switch ($pricingSource) {
                 case 'contract':
                     // Check active vendor contract
                     $contract = VendorContract::where('vendor_id', $vendor->vendor_id)
                         ->where('status', 'active')
                         ->where('start_date', '<=', now())
-                        ->where(function($q) {
+                        ->where(function ($q) {
                             $q->where('end_date', '>=', now())->orWhereNull('end_date');
                         })->first();
                     $hasPricing = (bool) $contract;
                     break;
-                    
+
                 case 'quotation':
                     // Check valid quotation
                     $quotation = VendorQuotation::where('vendor_id', $vendor->vendor_id)
                         ->where('status', 'received')
                         ->where('validity_date', '>=', now())
-                        ->whereHas('lines', function($q) use ($item) {
+                        ->whereHas('lines', function ($q) use ($item) {
                             $q->where('item_id', $item->item_id);
                         })->first();
                     $hasPricing = (bool) $quotation;
                     break;
-                    
+
                 case 'item_pricing':
                     // Check item pricing
                     $pricing = $item->prices()
@@ -1281,12 +1285,12 @@ $receivedQuantity = DB::table('goods_receipt_lines')
                         ->first();
                     $hasPricing = (bool) $pricing;
                     break;
-                    
+
                 case 'manual':
                     $hasPricing = $manualPricesMap->has($line->line_id);
                     break;
             }
-            
+
             if (!$hasPricing) {
                 $missingPricing[] = [
                     'pr_line_id' => $line->line_id,
@@ -1296,7 +1300,7 @@ $receivedQuantity = DB::table('goods_receipt_lines')
                 ];
             }
         }
-        
+
         return [
             'valid' => empty($missingPricing),
             'message' => empty($missingPricing) ? 'All items have valid pricing' : 'Some items missing pricing',
@@ -1311,32 +1315,32 @@ $receivedQuantity = DB::table('goods_receipt_lines')
     {
         // Generate PO number
         $poNumber = $this->poNumberGenerator->generate();
-        
+
         // Determine currency
         $currency = $request->currency_code ?? $vendor->preferred_currency ?? config('app.base_currency', 'USD');
         $baseCurrency = config('app.base_currency', 'USD');
-        
+
         // Get exchange rate
         $exchangeRate = $request->exchange_rate ?? $this->getExchangeRateForCurrency($currency, $baseCurrency);
-        
+
         // Get pricing for each line
         $manualPricesMap = collect($request->manual_prices ?? [])->keyBy('pr_line_id');
-        
+
         $subtotal = 0;
         $taxTotal = 0;
-        
+
         $poLines = [];
-        
+
         foreach ($pr->lines as $prLine) {
             $unitPrice = $this->getUnitPriceForLine($prLine, $vendor, $request->pricing_source, $manualPricesMap);
-            
+
             $lineSubtotal = $unitPrice * $prLine->quantity;
             $lineTax = 0; // Calculate if needed
             $lineTotal = $lineSubtotal + $lineTax;
-            
+
             $subtotal += $lineSubtotal;
             $taxTotal += $lineTax;
-            
+
             $poLines[] = [
                 'item_id' => $prLine->item_id,
                 'unit_price' => $unitPrice,
@@ -1351,9 +1355,9 @@ $receivedQuantity = DB::table('goods_receipt_lines')
                 'base_currency_total' => $lineTotal * $exchangeRate
             ];
         }
-        
+
         $totalAmount = $subtotal + $taxTotal;
-        
+
         // Create PO
         $po = PurchaseOrder::create([
             'po_number' => $poNumber,
@@ -1372,12 +1376,12 @@ $receivedQuantity = DB::table('goods_receipt_lines')
             'base_currency' => $baseCurrency,
             'reference_document' => "PR-{$pr->pr_number}"
         ]);
-        
+
         // Create PO lines
         foreach ($poLines as $lineData) {
             $po->lines()->create($lineData);
         }
-        
+
         return $po;
     }
 
@@ -1389,22 +1393,22 @@ $receivedQuantity = DB::table('goods_receipt_lines')
         $poNumber = $this->poNumberGenerator->generate();
         $currency = $vendor->preferred_currency ?? config('app.base_currency', 'USD');
         $baseCurrency = config('app.base_currency', 'USD');
-        
+
         // Get exchange rate
         $exchangeRate = $this->getExchangeRateForCurrency($currency, $baseCurrency);
-        
+
         // Calculate totals
         $subtotal = 0;
         $taxTotal = 0;
-        
+
         foreach ($selections as $selection) {
             $lineSubtotal = $selection['unit_price'] * $selection['quantity'];
             $subtotal += $lineSubtotal;
             // Add tax calculation if needed
         }
-        
+
         $totalAmount = $subtotal + $taxTotal;
-        
+
         // Create PO
         $po = PurchaseOrder::create([
             'po_number' => $poNumber,
@@ -1423,15 +1427,15 @@ $receivedQuantity = DB::table('goods_receipt_lines')
             'base_currency' => $baseCurrency,
             'reference_document' => "PR-{$pr->pr_number}"
         ]);
-        
+
         // Create PO lines
         foreach ($selections as $selection) {
             $prLine = PRLine::findOrFail($selection['pr_line_id']);
-            
+
             $lineSubtotal = $selection['unit_price'] * $selection['quantity'];
             $lineTax = 0; // Calculate if needed
             $lineTotal = $lineSubtotal + $lineTax;
-            
+
             $po->lines()->create([
                 'item_id' => $prLine->item_id,
                 'unit_price' => $selection['unit_price'],
@@ -1446,7 +1450,7 @@ $receivedQuantity = DB::table('goods_receipt_lines')
                 'base_currency_total' => $lineTotal * $exchangeRate
             ]);
         }
-        
+
         return $po->load(['vendor', 'lines.item']);
     }
 
@@ -1456,11 +1460,11 @@ $receivedQuantity = DB::table('goods_receipt_lines')
     private function validateQuantitySplit($pr, $vendorSelections)
     {
         $selectionsByLine = collect($vendorSelections)->groupBy('pr_line_id');
-        
+
         foreach ($pr->lines as $prLine) {
             $lineSelections = $selectionsByLine->get($prLine->line_id, collect());
             $totalSelectedQty = $lineSelections->sum('quantity');
-            
+
             if (abs($totalSelectedQty - $prLine->quantity) > 0.001) {
                 throw new \Exception("Quantity mismatch for item {$prLine->item->name}. Required: {$prLine->quantity}, Selected: {$totalSelectedQty}");
             }
@@ -1476,24 +1480,24 @@ $receivedQuantity = DB::table('goods_receipt_lines')
             case 'manual':
                 $manualPrice = $manualPricesMap->get($prLine->line_id);
                 return $manualPrice ? $manualPrice['unit_price'] : 0;
-                
+
             case 'contract':
                 // Get price from contract (simplified - you might need more complex logic)
                 return $prLine->item->getBestPurchasePriceInCurrency(
-                    $vendor->vendor_id, 
-                    $prLine->quantity, 
+                    $vendor->vendor_id,
+                    $prLine->quantity,
                     $vendor->preferred_currency ?? 'USD'
                 );
-                
+
             case 'quotation':
                 // Get price from valid quotation
                 $quotation = VendorQuotation::where('vendor_id', $vendor->vendor_id)
                     ->where('status', 'received')
                     ->where('validity_date', '>=', now())
-                    ->whereHas('lines', function($q) use ($prLine) {
+                    ->whereHas('lines', function ($q) use ($prLine) {
                         $q->where('item_id', $prLine->item_id);
                     })->first();
-                
+
                 if ($quotation) {
                     $quotationLine = $quotation->lines()
                         ->where('item_id', $prLine->item_id)
@@ -1501,14 +1505,14 @@ $receivedQuantity = DB::table('goods_receipt_lines')
                     return $quotationLine ? $quotationLine->unit_price : 0;
                 }
                 return 0;
-                
+
             case 'item_pricing':
                 return $prLine->item->getBestPurchasePriceInCurrency(
-                    $vendor->vendor_id, 
-                    $prLine->quantity, 
+                    $vendor->vendor_id,
+                    $prLine->quantity,
                     $vendor->preferred_currency ?? 'USD'
                 );
-                
+
             default:
                 return 0;
         }
@@ -1522,8 +1526,238 @@ $receivedQuantity = DB::table('goods_receipt_lines')
         if ($fromCurrency === $toCurrency) {
             return 1.0;
         }
-        
+
         $rate = CurrencyRate::getCurrentRate($fromCurrency, $toCurrency);
         return $rate ?? 1.0;
+    }
+    /**
+     * Download Excel template for purchase order import
+     */
+    public function downloadTemplate(Request $request)
+    {
+        try {
+            $spreadsheet = new Spreadsheet();
+
+            // ===== SHEET 1: PURCHASE ORDER HEADER =====
+            $headerSheet = $spreadsheet->getActiveSheet();
+            $headerSheet->setTitle('Purchase Orders');
+
+            // Header columns for Purchase Order
+            $headers = [
+                'A1' => 'Vendor Code*',
+                'B1' => 'PO Date*',
+                'C1' => 'Delivery Date',
+                'D1' => 'Payment Terms',
+                'E1' => 'Delivery Terms',
+                'F1' => 'Status*',
+                'G1' => 'Currency Code',
+                'H1' => 'Notes'
+            ];
+
+            // Apply headers
+            foreach ($headers as $cell => $value) {
+                $headerSheet->setCellValue($cell, $value);
+            }
+
+            // Style header row
+            $headerStyle = [
+                'font' => [
+                    'bold' => true,
+                    'color' => ['rgb' => 'FFFFFF']
+                ],
+                'fill' => [
+                    'fillType' => Fill::FILL_SOLID,
+                    'startColor' => ['rgb' => '366092']
+                ],
+                'alignment' => [
+                    'horizontal' => Alignment::HORIZONTAL_CENTER,
+                    'vertical' => Alignment::VERTICAL_CENTER
+                ],
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => Border::BORDER_THIN,
+                        'color' => ['rgb' => '000000']
+                    ]
+                ]
+            ];
+
+            $headerSheet->getStyle('A1:H1')->applyFromArray($headerStyle);
+
+            // Set column widths
+            $columnWidths = ['A' => 15, 'B' => 12, 'C' => 15, 'D' => 15, 'E' => 15, 'F' => 12, 'G' => 12, 'H' => 25];
+            foreach ($columnWidths as $column => $width) {
+                $headerSheet->getColumnDimension($column)->setWidth($width);
+            }
+
+            // Add sample data
+            $sampleData = [
+                ['VEND001', '2024-01-15', '2024-02-15', 'Net 30', 'FOB Origin', 'draft', 'USD', 'Sample purchase order 1'],
+                ['VEND002', '2024-01-16', '2024-02-20', 'Net 60', 'FOB Destination', 'draft', 'EUR', 'Sample purchase order 2']
+            ];
+
+            $row = 2;
+            foreach ($sampleData as $data) {
+                $col = 'A';
+                foreach ($data as $value) {
+                    $headerSheet->setCellValue($col . $row, $value);
+                    $col++;
+                }
+                $row++;
+            }
+
+            // ===== SHEET 2: PURCHASE ORDER LINES =====
+            $linesSheet = $spreadsheet->createSheet();
+            $linesSheet->setTitle('Purchase Order Lines');
+
+            $lineHeaders = [
+                'A1' => 'Vendor Code*',
+                'B1' => 'Item Code*',
+                'C1' => 'Quantity*',
+                'D1' => 'UOM Code*',
+                'E1' => 'Unit Price',
+                'F1' => 'Delivery Date',
+                'G1' => 'Discount',
+                'H1' => 'Tax',
+                'I1' => 'Notes'
+            ];
+
+            foreach ($lineHeaders as $cell => $value) {
+                $linesSheet->setCellValue($cell, $value);
+            }
+
+            $linesSheet->getStyle('A1:I1')->applyFromArray($headerStyle);
+
+            // Set column widths for lines sheet
+            $lineColumnWidths = ['A' => 15, 'B' => 15, 'C' => 10, 'D' => 10, 'E' => 12, 'F' => 12, 'G' => 10, 'H' => 10, 'I' => 25];
+            foreach ($lineColumnWidths as $column => $width) {
+                $linesSheet->getColumnDimension($column)->setWidth($width);
+            }
+
+            // Add sample line data
+            $sampleLineData = [
+                ['VEND001', 'ITEM001', 10, 'PCS', 100.00, '2024-02-01', 0, 10.00, 'Line 1 for vendor order'],
+                ['VEND001', 'ITEM002', 5, 'KG', 50.00, '2024-02-05', 5.00, 2.50, 'Line 2 for vendor order'],
+                ['VEND002', 'ITEM003', 20, 'PCS', 75.00, '2024-02-10', 0, 15.00, 'Line 1 for vendor order']
+            ];
+
+            $row = 2;
+            foreach ($sampleLineData as $data) {
+                $col = 'A';
+                foreach ($data as $value) {
+                    $linesSheet->setCellValue($col . $row, $value);
+                    $col++;
+                }
+                $row++;
+            }
+
+            // ===== SHEET 3: INSTRUCTIONS =====
+            $instructionSheet = $spreadsheet->createSheet();
+            $instructionSheet->setTitle('Instructions');
+
+            $instructions = [
+                'PURCHASE ORDER IMPORT INSTRUCTIONS',
+                '',
+                '1. GENERAL RULES:',
+                '   - Fields marked with * are required',
+                '   - Purchase Order numbers will be auto-generated (PO-yy-000000 format)',
+                '   - Use the exact codes from Reference Data sheet',
+                '   - Date format: YYYY-MM-DD (e.g., 2024-01-15)',
+                '   - Decimal numbers use dot (.) as separator',
+                '',
+                '2. PURCHASE ORDERS SHEET:',
+                '   - Vendor Code: Must exist in system',
+                '   - Status: draft, confirmed, approved, sent',
+                '   - Currency Code: Use standard 3-letter codes (USD, EUR, etc.)',
+                '',
+                '3. PURCHASE ORDER LINES SHEET:',
+                '   - Vendor Code: Must match with Purchase Orders sheet',
+                '   - Item Code: Must exist and be purchasable',
+                '   - UOM Code: Must exist in system',
+                '   - Unit Price: Price before tax',
+                '   - Tax: Tax amount per unit',
+                '',
+                '4. VALIDATION:',
+                '   - All vendor codes must exist in the system',
+                '   - All item codes must exist and be marked as purchasable',
+                '   - UOM codes must be valid',
+                '   - Quantities must be greater than 0',
+                '   - Unit prices must be greater than or equal to 0',
+                '',
+                '5. IMPORT PROCESS:',
+                '   - System will validate all data before import',
+                '   - Any validation errors will be reported',
+                '   - Only valid records will be imported',
+                '   - Purchase orders will be created in draft status',
+                '',
+                '6. CURRENCY HANDLING:',
+                '   - If currency is different from base currency, exchange rates will be applied',
+                '   - Base currency totals will be calculated automatically',
+                '   - Missing currency codes will default to system base currency'
+            ];
+
+            $row = 1;
+            foreach ($instructions as $instruction) {
+                $instructionSheet->setCellValue('A' . $row, $instruction);
+                if ($row == 1) {
+                    $instructionSheet->getStyle('A' . $row)->applyFromArray([
+                        'font' => ['bold' => true, 'size' => 14, 'color' => ['rgb' => 'FFFFFF']],
+                        'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '366092']]
+                    ]);
+                } elseif (strpos($instruction, ':') !== false && !empty(trim($instruction))) {
+                    $instructionSheet->getStyle('A' . $row)->applyFromArray([
+                        'font' => ['bold' => true]
+                    ]);
+                }
+                $row++;
+            }
+            $instructionSheet->getColumnDimension('A')->setWidth(80);
+
+            // ===== SHEET 4: REFERENCE DATA =====
+            $refSheet = $spreadsheet->createSheet();
+            $refSheet->setTitle('Reference Data');
+
+            // Status values
+            $refSheet->setCellValue('A1', 'Status Values');
+            $refSheet->getStyle('A1')->applyFromArray(['font' => ['bold' => true]]);
+            $statuses = ['draft', 'confirmed', 'approved', 'sent', 'partial', 'received', 'completed', 'canceled'];
+            $row = 2;
+            foreach ($statuses as $status) {
+                $refSheet->setCellValue('A' . $row, $status);
+                $row++;
+            }
+
+            // Currency codes
+            $refSheet->setCellValue('C1', 'Currency Codes');
+            $refSheet->getStyle('C1')->applyFromArray(['font' => ['bold' => true]]);
+            $currencies = ['USD', 'EUR', 'IDR', 'SGD', 'JPY', 'GBP', 'AUD'];
+            $row = 2;
+            foreach ($currencies as $currency) {
+                $refSheet->setCellValue('C' . $row, $currency);
+                $row++;
+            }
+
+            // Set active sheet back to first sheet
+            $spreadsheet->setActiveSheetIndex(0);
+
+            // Generate filename and save
+            $filename = 'purchase_order_import_template_' . date('Y-m-d_H-i-s') . '.xlsx';
+            $tempPath = storage_path('app/temp/' . $filename);
+
+            if (!file_exists(storage_path('app/temp'))) {
+                mkdir(storage_path('app/temp'), 0755, true);
+            }
+
+            $writer = new Xlsx($spreadsheet);
+            $writer->save($tempPath);
+
+            return response()->download($tempPath, $filename)->deleteFileAfterSend(true);
+        } catch (\Exception $e) {
+            Log::error('Error generating purchase order template: ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to generate template',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }

@@ -478,11 +478,11 @@ export default {
 
     // Operation table columns
     const operationColumns = [
-      { key: 'sequence', label: 'Sequence', sortable: true },
+    //   { key: 'sequence', label: 'Sequence', sortable: true },
       { key: 'operation_name', label: 'Operation Name', sortable: true },
+      { key: 'work_center_name', label: 'Work Center' },
       { key: 'work_flow', label: 'Work Flow', sortable: true },
       { key: 'models', label: 'Models', sortable: true },
-      { key: 'work_center_name', label: 'Work Center' },
       { key: 'setup_time', label: 'Setup Time' },
       { key: 'run_time', label: 'Process Time' },
       { key: 'total_time', label: 'Total Time' },

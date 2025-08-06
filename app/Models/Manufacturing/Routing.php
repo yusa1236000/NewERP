@@ -26,6 +26,7 @@ class Routing extends Model
         'process',
         'set_jump',
         'yield',
+        'yield_perikat',
     ];
 
     protected $casts = [

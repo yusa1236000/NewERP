@@ -34,8 +34,12 @@
         <div class="main-info-grid">
           <div class="info-row">
             <div class="info-cell">
-              <label>Code</label>
+              <label>Internal Code</label>
               <div class="value">{{ routing.routing_code }}</div>
+            </div>
+            <div class="info-cell">
+              <label>Cust Code</label>
+              <div class="value">{{ routing.item?.item_code || '-' }}</div>
             </div>
             <div class="info-cell">
               <label>Part Name</label>
@@ -45,13 +49,12 @@
               <label>Overall Dim</label>
               <div class="value">{{ getOverallDimension() }}</div>
             </div>
+          </div>
+          <div class="info-row">
             <div class="info-cell">
               <label>Cust Name</label>
               <div class="value">INTERNAL</div>
             </div>
-          </div>
-
-          <div class="info-row">
             <div class="info-cell">
               <label>Date</label>
               <div class="value">{{ formatDate(routing.effective_date) }}</div>
@@ -64,12 +67,7 @@
               <label>Rev.Date</label>
               <div class="value">{{ formatDate(routing.updated_at) }}</div>
             </div>
-            <div class="info-cell">
-              <label>Material Code</label>
-              <div class="value">{{ routing.item?.item_code || '-' }}</div>
-            </div>
           </div>
-
           <div class="info-row">
             <div class="info-cell">
               <label>Dimension</label>
@@ -80,7 +78,7 @@
               <div class="value">{{ routing.item?.description || 'REV PACK STD' }}</div>
             </div>
             <div class="info-cell">
-              <label>Cust Code</label>
+              <label>Material Code</label>
               <div class="value">{{ routing.item?.item_code || '-' }}</div>
             </div>
             <div class="info-cell">
@@ -167,7 +165,7 @@
                 <th>Yld 1</th>
                 <th>Yld 2</th>
                 <th>No Pc</th>
-              </tr>
+               </tr>
               <tr class="sub-header">
                 <th></th>
                 <th></th>
@@ -349,17 +347,8 @@ export default {
 
     // Operation-specific helper functions using existing data
     const getDimensionText = (operation) => {
-      const item = routing.value?.item;
-      const thickness = item?.thickness || '0.55';
-      const width = item?.width || '58';
-
-      if (operation.operation_name.includes('SLIT')) {
-        return `${thickness}MMX${width}MMX50M`;
-      }
-      if (operation.operation_name.includes('PUNCH')) {
-        return 'S/J 112.5MM';
-      }
-      return '-';
+      // Use dimensi field from operation data
+      return operation.dimensi || '-';
     };
 
     const getInstructionText = (operation) => {
@@ -385,13 +374,14 @@ export default {
     };
 
     const getToleranceMin = (operation) => {
-      if (operation.operation_name?.includes('SLIT')) return '-1.0';
-      return '-';
+      // Use toleransi field from operation data
+      // Assuming toleransi is an object with min and max properties
+      return operation.toleransi?.min || '-';
     };
 
     const getToleranceMax = (operation) => {
-      if (operation.operation_name?.includes('SLIT')) return '+1.0';
-      return '-';
+      // Use toleransi field from operation data
+      return operation.toleransi?.max || '-';
     };
 
     const getMachineCode = (operation) => {
@@ -412,17 +402,8 @@ export default {
     };
 
     const getYieldValue = (operation) => {
-    //   const cavity = routing.value?.cavity || 4;
-      const opName = operation.operation_name?.toUpperCase() || '';
-
-      if (opName.includes('PUNCH')) {
-        return formatNumber(1776);
-      }
-      if (opName.includes('SLIT')) {
-        return formatNumber(30192);
-      }
-
-      return '0';
+      // Use yield1 field from operation data
+      return operation.yield1 ? formatNumber(operation.yield1) : '0';
     };
 
     const getPieceCount = (operation) => {

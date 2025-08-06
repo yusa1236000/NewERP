@@ -295,8 +295,14 @@ class GoodsReceiptController extends Controller
         // Load relasi yang dibutuhkan
         $goodsReceipt->load(['lines.item', 'lines.purchaseOrderLine', 'vendor']);
 
+        // Collect unique uom_ids from items in lines
+        $uomIds = $goodsReceipt->lines->pluck('item')->pluck('uom_id')->unique()->filter()->values();
+
+        // Get uom_id to uom_name map
+        $uomMap = \App\Models\UnitOfMeasure::whereIn('uom_id', $uomIds)->pluck('name', 'uom_id');
+
         // Tambahkan informasi outstanding untuk setiap baris
-        $detailedLines = $goodsReceipt->lines->map(function ($line) use ($goodsReceipt) {
+        $detailedLines = $goodsReceipt->lines->map(function ($line) use ($goodsReceipt, $uomMap) {
             $poLine = $line->purchaseOrderLine;
             $po = $line->purchaseOrder;
 
@@ -326,6 +332,9 @@ class GoodsReceiptController extends Controller
                 $outstanding -= $line->received_quantity;
             }
 
+            // Get uom_name from map
+            $uomName = $uomMap->get($line->item->uom_id, '');
+
             return [
                 'line_id' => $line->line_id,
                 'po_id' => $po->po_id,
@@ -340,7 +349,8 @@ class GoodsReceiptController extends Controller
                 'outstanding_quantity' => $outstanding,
                 'warehouse_id' => $line->warehouse_id,
                 'warehouse_name' => $line->warehouse->name,
-                'batch_number' => $line->batch_number
+                'batch_number' => $line->batch_number,
+                'uom_name' => $uomName
             ];
         });
 

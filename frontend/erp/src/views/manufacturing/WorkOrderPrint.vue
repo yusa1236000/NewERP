@@ -208,9 +208,9 @@
             </thead>
             <tbody>
               <tr v-for="workflow in workflows" :key="workflow.id">
-                <td>{{ workflow.process }}</td>
+                <td>{{ workflow.work_center.name }}</td>
                 <td v-html="workflow.work_flow"></td>
-                <td>{{ workflow.tolerance }}</td>
+                <td>{{ workflow.toleransi }}</td>
                 <td>{{ workflow.check_process }}</td>
                 <td>{{ workflow.qty }}</td>
                 <td>{{ workflow.machine }}</td>
@@ -222,10 +222,13 @@
             </tbody>
           </table>
 
-          <!-- Catatan Penting -->
+          <!-- Catatan Penting - Updated layout to match koding 2 -->
           <div class="catatan-penting">
-            <em><b>Catatan Penting :</b></em>
-            <span class="date-note">{{ formatDate(workOrderData.planned_end_date) || '02/01/2025 Dummy' }}</span>
+            <div class="catatan-header">
+              <em><b>Important Notes :</b></em>
+              <span class="date-note">{{ formatDate(workOrderData.planned_end_date) || '02/01/2025 Dummy' }}</span>
+            </div>
+            <div v-if="workOrderData.notes" class="notes-content">{{ workOrderData.notes }}</div>
           </div>
 
           <!-- Footer -->
@@ -238,7 +241,7 @@
                 <span>/</span>
               </div>
               <div class="warning-text">
-                <b>PASTIKAN LOT NO. HARUS DI INPUT !!!</b>
+                <b>MAKE SURE LOT NO. MUST BE INPUT !!!</b>
               </div>
             </div>
 
@@ -341,112 +344,192 @@ export default {
 
     const flowChartHistory = ref([]);
 
-    // Computed property untuk workflows berdasarkan data API
-    const workflows = computed(() => {
-      if (!workOrderData.value.work_order_operations || workOrderData.value.work_order_operations.length === 0) {
-        // Return default data if no API data available
-        return [
-          {
-            id: 1,
-            process: 'C',
-            work_flow: 'CEK MATERIAL<br />SEBELUM PROSES',
-            tolerance: '-1.0 +1.0',
-            check_process: '',
-            qty: '',
-            machine: 'MANUAL',
-            setup: '2',
-            proces: '0.4',
-            total: '2.4',
-            status: ''
-          },
-          {
-            id: 2,
-            process: 'L',
-            work_flow: 'LAMIN SESUAIKAN MATERIAL<br />LAM.BAG.YG MENGKILAP',
-            tolerance: '',
-            check_process: '',
-            qty: '',
-            machine: 'L-1',
-            setup: '15',
-            proces: '1.6',
-            total: '16.6',
-            status: ''
-          },
-          {
-            id: 3,
-            process: 'P',
-            work_flow: '2MM X 1000MM X 480MM F/C<br />POTONG YANG SIKU',
-            tolerance: '-1.0 +1.0',
-            check_process: '',
-            qty: '',
-            machine: 'P-5',
-            setup: '15',
-            proces: '23.9',
-            total: '38.9',
-            status: ''
-          },
-          {
-            id: 4,
-            process: 'P',
-            work_flow: '2MM X 5MM X 480 K/C<br />TIAP 50 BARIS F/C',
-            tolerance: '-0.3 +0.3',
-            check_process: '',
-            qty: '',
-            machine: 'P-20',
-            setup: '10',
-            proces: '23.9',
-            total: '33.9',
-            status: ''
-          },
-          {
-            id: 5,
-            process: 'PK',
-            work_flow: 'SESUAIKAN DENGAN ORDER<br />PACKING YANG RAPI',
-            tolerance: '',
-            check_process: '',
-            qty: '',
-            machine: 'MANUAL',
-            setup: '5',
-            proces: '8.0',
-            total: '13.0',
-            status: ''
-          }
-        ];
+    // Safe computed property untuk workflows dengan null checking
+const workflows = computed(() => {
+  // Safe checking untuk data utama
+  if (!workOrderData.value ||
+      !workOrderData.value.work_order_operations ||
+      !Array.isArray(workOrderData.value.work_order_operations) ||
+      workOrderData.value.work_order_operations.length === 0) {
+
+    // Return default data if no API data available
+    return [
+      {
+        id: 1,
+        work_center: { name: 'SLIT', code: 'SLIT', workcenter_id: 39 },
+        work_flow: 'SLIT HN611B YANG RATA',
+        toleransi: '',
+        check_process: '',
+        qty: '',
+        machine: 'FS-13 M',
+        setup: '5',
+        proces: '0.5',
+        total: '5.5',
+        status: 'Pending'
+      },
+      {
+        id: 2,
+        work_center: { name: 'LAMN', code: 'LAMN', workcenter_id: 22 },
+        work_flow: 'LAMN HN BAGIAN LUAR ROLL',
+        toleransi: '',
+        check_process: '',
+        qty: '',
+        machine: 'DD-250(2)',
+        setup: '0',
+        proces: '0.01',
+        total: '0.01',
+        status: 'Pending'
+      },
+      {
+        id: 3,
+        work_center: { name: 'PUNCH', code: 'PUNCH', workcenter_id: 33 },
+        work_flow: 'LANGSUNG DEFLASING',
+        toleransi: '',
+        check_process: '',
+        qty: '',
+        machine: 'DD-250(2)',
+        setup: '15',
+        proces: '0.19',
+        total: '15.19',
+        status: 'Pending'
+      },
+      {
+        id: 4,
+        work_center: { name: 'PRECUT', code: 'PRECUT', workcenter_id: 29 },
+        work_flow: '2 PCS X 10 PCS= 20 PCS',
+        toleransi: '',
+        check_process: '',
+        qty: '',
+        machine: 'MANUAL',
+        setup: '5',
+        proces: '0.02',
+        total: '5.02',
+        status: 'Pending'
+      },
+      {
+        id: 5,
+        work_center: { name: 'PACK', code: 'PACK', workcenter_id: 27 },
+        work_flow: 'SIZE 3X65X580MM',
+        toleransi: '',
+        check_process: '',
+        qty: '',
+        machine: 'MANUAL',
+        setup: '5',
+        proces: '0.2',
+        total: '5.2',
+        status: 'Pending'
+      }
+    ];
+  }
+
+  try {
+    // Map API data to workflow format dengan safe checking
+    return workOrderData.value.work_order_operations.map((operation, index) => {
+      // Safe checking untuk operation
+      if (!operation) {
+        return {
+          id: index + 1,
+          work_center: { name: `Work Center ${index + 1}`, code: `WC${index + 1}` },
+          work_flow: `Operation ${index + 1}`,
+          toleransi: '',
+          check_process: '',
+          qty: '',
+          machine: 'MANUAL',
+          setup: '0',
+          proces: '0',
+          total: '0',
+          status: 'Pending'
+        };
       }
 
-      // Map API data to workflow format
-      return workOrderData.value.work_order_operations.map((operation, index) => {
-        const routingOp = operation.routing_operation || {};
-        const workCenter = routingOp.work_center || {};
+      const routingOp = operation.routing_operation || {};
 
-        const workFlowText = routingOp.work_flow || 'Operation ' + (index + 1);
-        const formattedWorkFlow = workFlowText.replace(/\n/g, '<br />');
+      // Safe checking dan ambil work center object
+      let workCenterObj = null;
 
-        const machineFromModels = routingOp.models || workCenter.name || 'MANUAL';
-
-        let processCode = '';
-        if (routingOp.operation_name) {
-          const parts = routingOp.operation_name.split('-');
-          processCode = parts.length > 1 ? parts[parts.length - 1] : (index + 1).toString();
-        } else {
-          processCode = (index + 1).toString();
-        }
-
-        return {
-          id: operation.operation_id || index + 1,
-          process: processCode,
-          work_flow: formattedWorkFlow,
-          tolerance: routingOp.tolerance || '',
-          check_process: routingOp.check_process || '',
-          qty: routingOp.planned_quantity || workOrderData.value.planned_quantity || '',
-          machine: machineFromModels,
-          setup: routingOp.setup_time || '0',
-          proces: routingOp.run_time || '0',
-          total: (parseFloat(routingOp.setup_time || 0) + parseFloat(routingOp.run_time || 0)).toString(),
-          status: operation.status || 'Pending'
+      // Method 1: Dari routing_operation langsung
+      if (routingOp && routingOp.work_center && typeof routingOp.work_center === 'object') {
+        workCenterObj = {
+          name: routingOp.work_center.name || 'Unknown',
+          code: routingOp.work_center.code || 'UNKNOWN',
+          workcenter_id: routingOp.work_center.workcenter_id || index + 1
         };
-      });
+      }
+      // Method 2: Dari routing.routing_operations
+      else if (workOrderData.value.routing &&
+               Array.isArray(workOrderData.value.routing.routing_operations)) {
+
+        const matchingRoutingOp = workOrderData.value.routing.routing_operations.find(
+          ro => ro && ro.operation_id === routingOp.operation_id
+        );
+
+        if (matchingRoutingOp && matchingRoutingOp.work_center &&
+            typeof matchingRoutingOp.work_center === 'object') {
+          workCenterObj = {
+            name: matchingRoutingOp.work_center.name || 'Unknown',
+            code: matchingRoutingOp.work_center.code || 'UNKNOWN',
+            workcenter_id: matchingRoutingOp.work_center.workcenter_id || index + 1
+          };
+        }
+      }
+
+      // Fallback work center object
+      if (!workCenterObj) {
+        workCenterObj = {
+          name: `Work Center ${index + 1}`,
+          code: `WC${index + 1}`,
+          workcenter_id: index + 1
+        };
+      }
+
+      // Safe string processing
+      const workFlowText = (routingOp.work_flow && typeof routingOp.work_flow === 'string')
+        ? routingOp.work_flow
+        : `Operation ${index + 1}`;
+      const formattedWorkFlow = workFlowText.replace(/\n/g, '<br />');
+
+      // Safe machine name
+      const machineFromModels = routingOp.models || workCenterObj.code || 'MANUAL';
+
+      // Safe number parsing
+      const setupTime = parseFloat(routingOp.setup_time || 0);
+      const runTime = parseFloat(routingOp.run_time || 0);
+      const totalTime = setupTime + runTime;
+
+      return {
+        id: operation.operation_id || index + 1,
+        work_center: workCenterObj,
+        work_flow: formattedWorkFlow,
+        toleransi: routingOp.toleransi || '',
+        check_process: routingOp.check_process || '',
+        qty: routingOp.planned_quantity || workOrderData.value.planned_quantity || '',
+        machine: machineFromModels,
+        setup: setupTime.toString(),
+        proces: runTime.toString(),
+        total: totalTime.toString(),
+        status: operation.status || 'Pending'
+      };
     });
+  } catch (error) {
+    console.error('Error in workflows computed:', error);
+    // Return fallback data jika ada error
+    return [
+      {
+        id: 1,
+        work_center: { name: 'Error Loading', code: 'ERROR' },
+        work_flow: 'Error loading workflow data',
+        toleransi: '',
+        check_process: '',
+        qty: '',
+        machine: 'N/A',
+        setup: '0',
+        proces: '0',
+        total: '0',
+        status: 'Error'
+      }
+    ];
+  }
+});
 
     // Print document - Buat window baru dengan styling khusus
     const printDocument = () => {
@@ -766,13 +849,19 @@ export default {
               height: 24px;
             }
 
-            /* Catatan Penting */
+            /* Catatan Penting - Updated to match koding 2 layout */
             .catatan-penting {
               margin-top: 10px;
               font-size: 10pt;
               font-style: italic;
               border-top: none;
               font-weight: normal;
+              display: flex;
+              flex-direction: column;
+              gap: 4px;
+            }
+
+            .catatan-header {
               display: flex;
               justify-content: space-between;
             }
@@ -785,6 +874,14 @@ export default {
             .catatan-penting .date-note {
               font-weight: bold;
               font-style: normal;
+            }
+
+            .notes-content {
+              font-style: normal;
+              font-weight: normal;
+              white-space: pre-wrap;
+              color: #333;
+              margin-left: 10px;
             }
 
             /* Footer Bottom */
@@ -1467,13 +1564,19 @@ export default {
   height: 24px;
 }
 
-/* Catatan Penting */
+/* Catatan Penting - Updated to match koding 2 layout */
 .catatan-penting {
   margin-top: 10px;
   font-size: 10pt;
   font-style: italic;
   border-top: none;
   font-weight: normal;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.catatan-header {
   display: flex;
   justify-content: space-between;
 }
@@ -1486,6 +1589,14 @@ export default {
 .catatan-penting .date-note {
   font-weight: bold;
   font-style: normal;
+}
+
+.notes-content {
+  font-style: normal;
+  font-weight: normal;
+  white-space: pre-wrap;
+  color: #333;
+  margin-left: 10px;
 }
 
 /* Footer Bottom */
