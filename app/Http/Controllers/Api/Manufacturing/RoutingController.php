@@ -107,7 +107,8 @@ class RoutingController extends Controller
                 'operations.*.work_flow' => 'nullable|string|max:100',
                 'operations.*.models' => 'nullable|string|max:100',
                 'operations.*.dimensi' => 'nullable|string|max:100',
-                'operations.*.toleransi' => 'nullable|string|max:100',
+                'operations.*.toleransi_max' => 'nullable|string|max:100',
+                'operations.*.toleransi_min' => 'nullable|string|max:100',
                 'operations.*.sequence' => 'required|integer',
                 'operations.*.setup_time' => 'required|numeric',
                 'operations.*.run_time' => 'required|numeric',
@@ -116,6 +117,7 @@ class RoutingController extends Controller
                 'operations.*.overhead_cost' => 'required|numeric',
                 'yield' => 'nullable|numeric|min:0|max:100',
                 'yield_perikat' => 'nullable|numeric|min:0|max:100',
+                'tooling_code' => 'nullable|string|max:50',
             ]);
 
             if ($validator->fails()) {
@@ -138,6 +140,7 @@ class RoutingController extends Controller
                 'set_jump' => $request->set_jump,
                 'yield' => $request->yield,
                 'yield_perikat' => $request->yield_perikat,
+                'tooling_code' => $request->tooling_code,
             ]);
 
             if ($request->has('operations')) {
@@ -218,7 +221,8 @@ class RoutingController extends Controller
                 'operations.*.work_flow' => 'nullable|string|max:100',
                 'operations.*.models' => 'nullable|string|max:100',
                 'operations.*.dimensi' => 'nullable|string|max:100',
-                'operations.*.toleransi' => 'nullable|string|max:100',
+                'operations.*.toleransi_max' => 'nullable|string|max:100',
+                'operations.*.toleransi_min' => 'nullable|string|max:100',
                 // Field existing
                 'operations.*.sequence' => 'required|integer',
                 'operations.*.setup_time' => 'required|numeric',
@@ -228,6 +232,7 @@ class RoutingController extends Controller
                 'operations.*.overhead_cost' => 'required|numeric',
                 'yield' => 'nullable|numeric|min:0|max:100',
                 'yield_perikat' => 'nullable|numeric|min:0|max:100',
+                'tooling_code' => 'nullable|string|max:50',
             ]);
 
             if ($validator->fails()) {
@@ -250,6 +255,7 @@ class RoutingController extends Controller
                 'set_jump' => $request->set_jump,
                 'yield' => $request->yield,
                 'yield_perikat' => $request->yield_perikat,
+                'tooling_code' => $request->tooling_code,
             ]);
 
             // Delete existing operations and recreate
@@ -375,11 +381,11 @@ class RoutingController extends Controller
                         'operation_name' => $operation->operation_name,
                         'work_flow' => $operation->work_flow,
                         'models' => $operation->models,
-                        // Field baru
+                        'toleransi_max' => $operation->toleransi_max,
+                        'toleransi_min' => $operation->toleransi_min,
                         'cavity' => $operation->cavity,
                         'process' => $operation->process,
                         'set_jump' => $operation->set_jump,
-                        // Field existing
                         'sequence' => $operation->sequence,
                         'setup_time' => $operation->setup_time,
                         'run_time' => $operation->run_time,

@@ -195,6 +195,23 @@
                 <small class="text-muted">Production yield percentage (0-100%)</small>
                 <small v-if="errors.yield" class="text-danger">{{ errors.yield[0] }}</small>
               </div>
+              <div class="row mt-3">
+                <div class="col-md-3">
+                    <div class="form-group">
+                    <label for="tooling_code">Tooling Code</label>
+                    <input
+                        id="tooling_code"
+                        v-model="routing.tooling_code"
+                        type="text"
+                        class="form-control"
+                        placeholder="Enter tooling/tool code"
+                        maxlength="50"
+                    />
+                    <small class="text-muted">Code for the tooling or tool used</small>
+                    <small v-if="errors.tooling_code" class="text-danger">{{ errors.tooling_code[0] }}</small>
+                    </div>
+                </div>
+                </div>
             </div>
             </div>
 
@@ -242,6 +259,7 @@ import { ref, reactive, computed, onMounted, watch } from 'vue';
       set_jump: null,
       yield: null,
       yield_perikat: null,
+      tooling_code: '',
     });
 
     const searchQuery = ref('');

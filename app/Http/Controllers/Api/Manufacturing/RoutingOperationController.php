@@ -60,7 +60,8 @@ class RoutingOperationController extends Controller
             'labor_cost' => 'required|numeric',
             'overhead_cost' => 'required|numeric',
             'dimensi' => 'nullable|string|max:100',
-            'toleransi' => 'nullable|string|max:100',
+            'toleransi_max' => 'nullable|string|max:100',
+            'toleransi_min' => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
@@ -74,7 +75,8 @@ class RoutingOperationController extends Controller
         $operation->work_flow = $request->work_flow;
         $operation->models = $request->models;
         $operation->dimensi = $request->dimensi;
-        $operation->toleransi = $request->toleransi;
+        $operation->toleransi_max = $request->toleransi_max;
+        $operation->toleransi_min = $request->toleransi_min;
         $operation->sequence = $request->sequence;
         $operation->setup_time = $request->setup_time;
         $operation->run_time = $request->run_time;
@@ -152,7 +154,8 @@ class RoutingOperationController extends Controller
             'labor_cost' => 'required|numeric',
             'overhead_cost' => 'required|numeric',
             'dimensi' => 'nullable|string|max:100',
-            'toleransi' => 'nullable|string|max:100',
+            'toleransi_max' => 'nullable|string|max:100',
+            'toleransi_min' => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
@@ -164,7 +167,8 @@ class RoutingOperationController extends Controller
         $operation->work_flow = $request->work_flow;
         $operation->models = $request->models;
         $operation->dimensi = $request->dimensi;
-        $operation->toleransi = $request->toleransi;
+        $operation->toleransi_max = $request->toleransi_max;
+        $operation->toleransi_min = $request->toleransi_min;
         $operation->sequence = $request->sequence;
         $operation->setup_time = $request->setup_time;
         $operation->run_time = $request->run_time;

@@ -276,21 +276,57 @@
                         </small>
                     </div>
 
-                    <div class="form-group col-md-6">
-                        <label for="toleransi">Toleransi</label>
-                        <input
-                            id="toleransi"
-                            v-model="operationForm.toleransi"
-                            type="text"
-                            class="form-control"
-                            placeholder="Tolerance specification"
-                            maxlength="100"
-                        />
-                        <small class="text-muted">Tolerance specification for this operation</small>
-                        <small v-if="operationErrors.toleransi" class="error-message">
-                            {{ operationErrors.toleransi[0] }}
-                        </small>
-                    </div>
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <i class="fas fa-ruler-combined"></i>
+                            Tolerance Specification
+                        </h3>
+
+                        <div class="form-row">
+                            <div class="form-group col-md-6">
+                            <label for="toleransi_min">
+                                <i class="fas fa-arrow-down text-danger"></i>
+                                Tolerance Min
+                            </label>
+                            <input
+                                id="toleransi_min"
+                                v-model="operationForm.toleransi_min"
+                                type="text"
+                                class="form-control"
+                                :class="{ 'is-invalid': operationErrors.toleransi_min }"
+                                placeholder="Minimum tolerance value"
+                            />
+                            <small class="help-text">Nilai tolerance minimum</small>
+                            <div v-if="operationErrors.toleransi_min" class="invalid-feedback">
+                                {{ operationErrors.toleransi_min[0] }}
+                            </div>
+                            </div>
+
+                            <div class="form-group col-md-6">
+                            <label for="toleransi_max">
+                                <i class="fas fa-arrow-up text-success"></i>
+                                Tolerance Max
+                            </label>
+                            <input
+                                id="toleransi_max"
+                                v-model="operationForm.toleransi_max"
+                                type="text"
+                                class="form-control"
+                                :class="{ 'is-invalid': operationErrors.toleransi_max }"
+                                placeholder="Maximum tolerance value"
+                            />
+                            <small class="help-text">Nilai tolerance maximum</small>
+                            <div v-if="operationErrors.toleransi_max" class="invalid-feedback">
+                                {{ operationErrors.toleransi_max[0] }}
+                            </div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info mt-2">
+                            <i class="fas fa-lightbulb"></i>
+                            <strong>Format contoh:</strong> ±0.1, +0.05/-0.02, 0.1-0.5
+                        </div>
+                        </div>
                 </div>
               </div>
 
@@ -497,7 +533,8 @@ export default {
       work_flow: '',
       models: '',
       dimensi: '',
-      toleransi: '',
+      toleransi_max: '',
+      toleransi_min: '',
       sequence: 10,
       setup_time: 0,
       run_time: 0,
@@ -578,17 +615,30 @@ export default {
     };
 
     // Load operations
-    const loadOperations = async () => {
+const loadOperations = async () => {
       isLoadingOperations.value = true;
       try {
         const response = await axios.get(`/routings/${routingId.value}/operations`);
         console.log('Operations data:', response.data.data);
-        // Map operations to add work_center_name property and format total_time
-        operations.value = response.data.data.map(op => ({
-          ...op,
-          work_center_name: op.work_center ? op.work_center.name : '-',
-          total_time: op.total_time || (op.setup_time + op.run_time)
-        }));
+        // Map operations to add work_center_name property, format total_time, and combine toleransi
+        operations.value = response.data.data.map(op => {
+          const toleransiMin = op.toleransi_min || '';
+          const toleransiMax = op.toleransi_max || '';
+          let toleransiCombined = '';
+          if (toleransiMin && toleransiMax) {
+            toleransiCombined = `${toleransiMax} / ${toleransiMin}`;
+          } else if (toleransiMax) {
+            toleransiCombined = toleransiMax;
+          } else if (toleransiMin) {
+            toleransiCombined = toleransiMin;
+          }
+          return {
+            ...op,
+            work_center_name: op.work_center ? op.work_center.name : '-',
+            total_time: op.total_time || (op.setup_time + op.run_time),
+            toleransi: toleransiCombined
+          };
+        });
       } catch (error) {
         console.error('Error loading operations:', error);
       } finally {
@@ -632,8 +682,8 @@ export default {
       operationForm.labor_cost = operation.labor_cost;
       operationForm.overhead_cost = operation.overhead_cost;
       operationForm.dimensi = operation.dimensi;
-      operationForm.toleransi = operation.toleransi;
-
+      operationForm.toleransi_max = operation.toleransi_max || '';
+      operationForm.toleransi_min = operation.toleransi_min || '';
       showOperationModal.value = true;
     };
 
@@ -653,7 +703,8 @@ export default {
       operationForm.labor_cost = 0;
       operationForm.overhead_cost = 0;
       operationForm.dimensi = 0;
-      operationForm.toleransi = 0;
+      operationForm.toleransi_max = '';
+      operationForm.toleransi_min = '';
     };
 
     // Cancel operation form
