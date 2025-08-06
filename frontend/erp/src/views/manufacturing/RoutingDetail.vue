@@ -257,6 +257,41 @@
                     </small>
                   </div>
                 </div>
+
+                <!-- Tambahkan setelah field models -->
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label for="dimensi">Dimensi</label>
+                        <input
+                            id="dimensi"
+                            v-model="operationForm.dimensi"
+                            type="text"
+                            class="form-control"
+                            placeholder="Specification dimension"
+                            maxlength="100"
+                        />
+                        <small class="text-muted">Dimension specification for this operation</small>
+                        <small v-if="operationErrors.dimensi" class="error-message">
+                            {{ operationErrors.dimensi[0] }}
+                        </small>
+                    </div>
+
+                    <div class="form-group col-md-6">
+                        <label for="toleransi">Toleransi</label>
+                        <input
+                            id="toleransi"
+                            v-model="operationForm.toleransi"
+                            type="text"
+                            class="form-control"
+                            placeholder="Tolerance specification"
+                            maxlength="100"
+                        />
+                        <small class="text-muted">Tolerance specification for this operation</small>
+                        <small v-if="operationErrors.toleransi" class="error-message">
+                            {{ operationErrors.toleransi[0] }}
+                        </small>
+                    </div>
+                </div>
               </div>
 
               <!-- Time & Sequence Section -->
@@ -461,6 +496,8 @@ export default {
       operation_name: '',
       work_flow: '',
       models: '',
+      dimensi: '',
+      toleransi: '',
       sequence: 10,
       setup_time: 0,
       run_time: 0,
@@ -483,6 +520,8 @@ export default {
       { key: 'work_center_name', label: 'Work Center' },
       { key: 'work_flow', label: 'Work Flow', sortable: true },
       { key: 'models', label: 'Models', sortable: true },
+      { key: 'dimensi', label: 'Dimensi', sortable: true },
+      { key: 'toleransi', label: 'Toleransi', sortable: true },
       { key: 'setup_time', label: 'Setup Time' },
       { key: 'run_time', label: 'Process Time' },
       { key: 'total_time', label: 'Total Time' },
@@ -592,6 +631,8 @@ export default {
       operationForm.uom_id = operation.uom_id;
       operationForm.labor_cost = operation.labor_cost;
       operationForm.overhead_cost = operation.overhead_cost;
+      operationForm.dimensi = operation.dimensi;
+      operationForm.toleransi = operation.toleransi;
 
       showOperationModal.value = true;
     };
@@ -611,6 +652,8 @@ export default {
       operationForm.uom_id = '';
       operationForm.labor_cost = 0;
       operationForm.overhead_cost = 0;
+      operationForm.dimensi = 0;
+      operationForm.toleransi = 0;
     };
 
     // Cancel operation form

@@ -113,6 +113,23 @@
                   <small v-if="errors.status" class="text-danger">{{ errors.status[0] }}</small>
                 </div>
               </div>
+              <div class="col-md-3">
+                <div class="form-group">
+                    <label for="yield_perikat">Yield PreeCut (%)</label>
+                    <input
+                        id="yield_perikat"
+                        v-model.number="routing.yield_perikat"
+                        type="number"
+                        class="form-control"
+                        placeholder="Yield perikat percentage"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                    />
+                    <small class="text-muted">Yield perikat percentage (0-100%)</small>
+                    <small v-if="errors.yield_perikat" class="text-danger">{{ errors.yield_perikat[0] }}</small>
+                </div>
+            </div>
             </div>
 
             <!-- Field Baru -->
@@ -181,6 +198,7 @@
             </div>
             </div>
 
+
             <div class="mt-4">
               <h3>Operasi Routing</h3>
               <p class="text-muted">
@@ -223,6 +241,7 @@ import { ref, reactive, computed, onMounted, watch } from 'vue';
       process: '',
       set_jump: null,
       yield: null,
+      yield_perikat: null,
     });
 
     const searchQuery = ref('');

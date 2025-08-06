@@ -59,6 +59,8 @@ class RoutingOperationController extends Controller
             'uom_id' => 'required|integer|exists:unit_of_measures,uom_id',
             'labor_cost' => 'required|numeric',
             'overhead_cost' => 'required|numeric',
+            'dimensi' => 'nullable|string|max:100',
+            'toleransi' => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
@@ -71,6 +73,8 @@ class RoutingOperationController extends Controller
         $operation->operation_name = $request->operation_name;
         $operation->work_flow = $request->work_flow;
         $operation->models = $request->models;
+        $operation->dimensi = $request->dimensi;
+        $operation->toleransi = $request->toleransi;
         $operation->sequence = $request->sequence;
         $operation->setup_time = $request->setup_time;
         $operation->run_time = $request->run_time;
@@ -147,6 +151,8 @@ class RoutingOperationController extends Controller
             'uom_id' => 'required|integer|exists:unit_of_measures,uom_id',
             'labor_cost' => 'required|numeric',
             'overhead_cost' => 'required|numeric',
+            'dimensi' => 'nullable|string|max:100',
+            'toleransi' => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
@@ -157,6 +163,8 @@ class RoutingOperationController extends Controller
         $operation->operation_name = $request->operation_name;
         $operation->work_flow = $request->work_flow;
         $operation->models = $request->models;
+        $operation->dimensi = $request->dimensi;
+        $operation->toleransi = $request->toleransi;
         $operation->sequence = $request->sequence;
         $operation->setup_time = $request->setup_time;
         $operation->run_time = $request->run_time;

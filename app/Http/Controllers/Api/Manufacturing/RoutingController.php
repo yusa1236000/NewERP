@@ -106,6 +106,8 @@ class RoutingController extends Controller
                 'operations.*.operation_name' => 'required|string|max:100',
                 'operations.*.work_flow' => 'nullable|string|max:100',
                 'operations.*.models' => 'nullable|string|max:100',
+                'operations.*.dimensi' => 'nullable|string|max:100',
+                'operations.*.toleransi' => 'nullable|string|max:100',
                 'operations.*.sequence' => 'required|integer',
                 'operations.*.setup_time' => 'required|numeric',
                 'operations.*.run_time' => 'required|numeric',
@@ -113,6 +115,7 @@ class RoutingController extends Controller
                 'operations.*.labor_cost' => 'required|numeric',
                 'operations.*.overhead_cost' => 'required|numeric',
                 'yield' => 'nullable|numeric|min:0|max:100',
+                'yield_perikat' => 'nullable|numeric|min:0|max:100',
             ]);
 
             if ($validator->fails()) {
@@ -134,6 +137,7 @@ class RoutingController extends Controller
                 'process' => $request->process,
                 'set_jump' => $request->set_jump,
                 'yield' => $request->yield,
+                'yield_perikat' => $request->yield_perikat,
             ]);
 
             if ($request->has('operations')) {
@@ -144,6 +148,8 @@ class RoutingController extends Controller
                         'operation_name' => $operation['operation_name'],
                         'work_flow' => $operation['work_flow'] ?? null,
                         'models' => $operation['models'] ?? null,
+                        'dimensi' => $operation['dimensi'] ?? null,        // ✅ TAMBAH FIELD INI
+                        'toleransi' => $operation['toleransi'] ?? null,
                         // Field existing
                         'sequence' => $operation['sequence'],
                         'setup_time' => $operation['setup_time'],
@@ -211,6 +217,8 @@ class RoutingController extends Controller
                 'operations.*.operation_name' => 'required|string|max:100',
                 'operations.*.work_flow' => 'nullable|string|max:100',
                 'operations.*.models' => 'nullable|string|max:100',
+                'operations.*.dimensi' => 'nullable|string|max:100',
+                'operations.*.toleransi' => 'nullable|string|max:100',
                 // Field existing
                 'operations.*.sequence' => 'required|integer',
                 'operations.*.setup_time' => 'required|numeric',
@@ -219,6 +227,7 @@ class RoutingController extends Controller
                 'operations.*.labor_cost' => 'required|numeric',
                 'operations.*.overhead_cost' => 'required|numeric',
                 'yield' => 'nullable|numeric|min:0|max:100',
+                'yield_perikat' => 'nullable|numeric|min:0|max:100',
             ]);
 
             if ($validator->fails()) {
@@ -240,6 +249,7 @@ class RoutingController extends Controller
                 'process' => $request->process,
                 'set_jump' => $request->set_jump,
                 'yield' => $request->yield,
+                'yield_perikat' => $request->yield_perikat,
             ]);
 
             // Delete existing operations and recreate

@@ -164,7 +164,7 @@
         { key: 'revision', label: 'Revised', sortable: true },
         { key: 'effective_date', label: 'Effective Date', sortable: true },
         { key: 'status', label: 'Status', sortable: true },
-        { key: 'actions', label: 'Action', sortable: false, width: '120px' }
+        // { key: 'actions', label: 'Action', sortable: false, width: '120px' }
       ];
 
       // Format date to local format
