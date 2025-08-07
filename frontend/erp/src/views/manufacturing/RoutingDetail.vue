@@ -122,6 +122,12 @@
                 {{ value || '-' }}
               </template>
 
+              <!-- Yield1 column -->
+            <template #yield1="{ value }">
+                {{ value || '0' }}
+            </template>
+
+
               <!-- Run Time column -->
               <template #run_time="{ value, item }">
                 {{ value }} {{ getUnitName(value, item) }}
@@ -459,6 +465,23 @@
                 </div>
               </div>
 
+              <div class="form-group col-md-6">
+                <label for="yield1">Yield 1</label>
+                <input
+                    id="yield1"
+                    v-model.number="operationForm.yield1"
+                    type="number"
+                    class="form-control"
+                    placeholder="Enter yield 1 value"
+                    step="0.0001"
+                    min="0"
+                />
+                <small class="text-muted">Yield value for this operation</small>
+                <small v-if="operationErrors.yield1" class="error-message">
+                    {{ operationErrors.yield1[0] }}
+                </small>
+                </div>
+
               <!-- Form Actions -->
               <div class="form-actions">
                 <button type="button" class="btn btn-secondary" @click="cancelOperationForm">
@@ -541,6 +564,7 @@ export default {
       uom_id: '',
       labor_cost: 0,
       overhead_cost: 0,
+      yield1: 0,
     });
 
     // Computed property for total time safely calculated
@@ -562,6 +586,7 @@ export default {
       { key: 'setup_time', label: 'Setup Time' },
       { key: 'run_time', label: 'Process Time' },
       { key: 'total_time', label: 'Total Time' },
+      { key: 'yield1', label: 'Yield 1', sortable: true },
       { key: 'labor_cost', label: 'Labor Cost' },
       { key: 'overhead_cost', label: 'Overhead Cost' },
     //   { key: 'actions', label: 'Actions' },
@@ -681,6 +706,7 @@ const loadOperations = async () => {
       operationForm.uom_id = operation.uom_id;
       operationForm.labor_cost = operation.labor_cost;
       operationForm.overhead_cost = operation.overhead_cost;
+      operationForm.yield1 = operation.yield1 || 0;
       operationForm.dimensi = operation.dimensi;
       operationForm.toleransi_max = operation.toleransi_max || '';
       operationForm.toleransi_min = operation.toleransi_min || '';
@@ -702,6 +728,7 @@ const loadOperations = async () => {
       operationForm.uom_id = '';
       operationForm.labor_cost = 0;
       operationForm.overhead_cost = 0;
+      operationForm.yield1 = 0;
       operationForm.dimensi = 0;
       operationForm.toleransi_max = '';
       operationForm.toleransi_min = '';

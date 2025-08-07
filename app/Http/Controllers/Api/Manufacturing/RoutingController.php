@@ -115,6 +115,7 @@ class RoutingController extends Controller
                 'operations.*.uom_id' => 'required|integer|exists:unit_of_measures,uom_id',
                 'operations.*.labor_cost' => 'required|numeric',
                 'operations.*.overhead_cost' => 'required|numeric',
+                'operations.*.yield1' => 'nullable|numeric|min:0',
                 'yield' => 'nullable|numeric|min:0|max:100',
                 'yield_perikat' => 'nullable|numeric|min:0|max:100',
                 'tooling_code' => 'nullable|string|max:50',
@@ -160,6 +161,7 @@ class RoutingController extends Controller
                         'uom_id' => $operation['uom_id'],
                         'labor_cost' => $operation['labor_cost'],
                         'overhead_cost' => $operation['overhead_cost'],
+                        'yield1' => $operation['yield1'] ?? null,
                     ]);
                 }
             }
@@ -276,6 +278,7 @@ class RoutingController extends Controller
                         'uom_id' => $operation['uom_id'],
                         'labor_cost' => $operation['labor_cost'],
                         'overhead_cost' => $operation['overhead_cost'],
+                        'yield1' => $operation['yield1'] ?? null,
                     ]);
                 }
             }
@@ -393,6 +396,7 @@ class RoutingController extends Controller
                         'uom_id' => $operation->uom_id,
                         'labor_cost' => $operation->labor_cost,
                         'overhead_cost' => $operation->overhead_cost,
+                        'yield1' => $operation->yield1,
                         'work_center' => $operation->workCenter,
                         'unit_of_measure' => $operation->unitOfMeasure,
                     ];

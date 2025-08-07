@@ -16,7 +16,7 @@ class RoutingOperation extends Model
 
     protected $table = 'routing_operations';
     protected $primaryKey = 'operation_id';
-    public $timestamps = false;
+    public $timestamps = true;
 
     protected $fillable = [
         'routing_id',
@@ -33,6 +33,7 @@ class RoutingOperation extends Model
         'uom_id',
         'labor_cost',
         'overhead_cost',
+        'yield1',
     ];
 
     protected $appends = ['total_time'];

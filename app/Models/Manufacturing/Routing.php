@@ -14,7 +14,7 @@ class Routing extends Model
 
     protected $table = 'routings';
     protected $primaryKey = 'routing_id';
-    public $timestamps = false;
+    public $timestamps = true;
 
     protected $fillable = [
         'item_id',

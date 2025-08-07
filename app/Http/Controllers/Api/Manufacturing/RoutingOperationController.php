@@ -8,6 +8,7 @@ use App\Models\Manufacturing\RoutingOperation;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 
 class RoutingOperationController extends Controller
 {
@@ -42,11 +43,23 @@ class RoutingOperationController extends Controller
      */
     public function store(Request $request, $routingId)
     {
+        Log::info('RoutingOperationController::store - Request received', [
+            'routing_id' => $routingId,
+            'request_data' => $request->all(),
+            'headers' => $request->headers->all()
+        ]);
+
         $routing = Routing::find($routingId);
 
         if (!$routing) {
+            Log::error('RoutingOperationController::store - Routing not found', ['routing_id' => $routingId]);
             return response()->json(['message' => 'Routing not found'], 404);
         }
+
+        Log::info('RoutingOperationController::store - Routing found', [
+            'routing_id' => $routingId,
+            'routing_data' => $routing->toArray()
+        ]);
 
         $validator = Validator::make($request->all(), [
             'workcenter_id' => 'required|integer|exists:work_centers,workcenter_id',
@@ -65,8 +78,16 @@ class RoutingOperationController extends Controller
         ]);
 
         if ($validator->fails()) {
+            Log::error('RoutingOperationController::store - Validation failed', [
+                'errors' => $validator->errors()->toArray(),
+                'request_data' => $request->all()
+            ]);
             return response()->json(['errors' => $validator->errors()], 422);
         }
+
+        Log::info('RoutingOperationController::store - Validation passed', [
+            'request_data' => $request->all()
+        ]);
 
         $operation = new RoutingOperation();
         $operation->routing_id = $routingId;
@@ -83,12 +104,30 @@ class RoutingOperationController extends Controller
         $operation->uom_id = $request->uom_id;
         $operation->labor_cost = $request->labor_cost;
         $operation->overhead_cost = $request->overhead_cost;
-        $operation->save();
 
-        return response()->json([
-            'data' => $operation->load(['workCenter', 'unitOfMeasure']),
-            'message' => 'Operation created successfully'
-        ], 201);
+        Log::info('RoutingOperationController::store - About to save operation', [
+            'operation_data' => $operation->toArray()
+        ]);
+
+        try {
+            $saved = $operation->save();
+            Log::info('RoutingOperationController::store - Save result', [
+                'saved' => $saved,
+                'operation_id' => $operation->operation_id,
+                'operation_data' => $operation->toArray()
+            ]);
+
+            return response()->json([
+                'data' => $operation->load(['workCenter', 'unitOfMeasure']),
+                'message' => 'Operation created successfully'
+            ], 201);
+        } catch (\Exception $e) {
+            Log::error('RoutingOperationController::store - Save failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['message' => 'Failed to save operation: ' . $e->getMessage()], 500);
+        }
     }
 
     /**
