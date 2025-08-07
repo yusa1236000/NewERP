@@ -98,7 +98,7 @@
         <div class="card">
           <div class="card-header d-flex justify-content-between align-items-center">
             <h2 class="card-title">Routing Operation</h2>
-            <button @click="showOperationModal = true" class="btn btn-primary">
+            <button @click="addOperation" class="btn btn-primary">
               <i class="fas fa-plus mr-1"></i> Add Operation
             </button>
           </div>
@@ -122,12 +122,6 @@
                 {{ value || '-' }}
               </template>
 
-              <!-- Yield1 column -->
-            <template #yield1="{ value }">
-                {{ value || '0' }}
-            </template>
-
-
               <!-- Run Time column -->
               <template #run_time="{ value, item }">
                 {{ value }} {{ getUnitName(value, item) }}
@@ -145,6 +139,11 @@
                 </strong>
               </template>
 
+              <!-- Yield1 column -->
+              <template #yield1="{ value }">
+                {{ value || '0' }}
+              </template>
+
               <!-- Cost columns -->
               <template #labor_cost="{ value }">
                 {{ formatCurrency(value) }}
@@ -153,6 +152,7 @@
               <template #overhead_cost="{ value }">
                 {{ formatCurrency(value) }}
               </template>
+
 
               <!-- Actions column -->
               <template #actions="{ item }">
@@ -263,78 +263,112 @@
                     </small>
                   </div>
                 </div>
+              </div>
 
-                <!-- Tambahkan setelah field models -->
-                <div class="form-row">
-                    <div class="form-group col-md-6">
-                        <label for="dimensi">Dimensi</label>
-                        <input
-                            id="dimensi"
-                            v-model="operationForm.dimensi"
-                            type="text"
-                            class="form-control"
-                            placeholder="Specification dimension"
-                            maxlength="100"
-                        />
-                        <small class="text-muted">Dimension specification for this operation</small>
-                        <small v-if="operationErrors.dimensi" class="error-message">
-                            {{ operationErrors.dimensi[0] }}
-                        </small>
-                    </div>
+            <div class="form-section">
+              <h3 class="section-title">
+                <i class="fas fa-ruler-combined"></i>
+                Tolerance Specification
+              </h3>
 
-                    <div class="form-section">
-                        <h3 class="section-title">
-                            <i class="fas fa-ruler-combined"></i>
-                            Tolerance Specification
-                        </h3>
+              <div class="form-row">
+                <div class="form-group col-md-6">
+                  <label for="toleransi_min">
+                    <i class="fas fa-arrow-down text-danger"></i>
+                    Tolerance Min
+                  </label>
+                  <input
+                    id="toleransi_min"
+                    v-model="operationForm.toleransi_min"
+                    type="text"
+                    class="form-control"
+                    :class="{ 'is-invalid': operationErrors.toleransi_min }"
+                    placeholder="Minimum tolerance value"
+                  />
+                  <small class="help-text">Nilai tolerance minimum</small>
+                  <div v-if="operationErrors.toleransi_min" class="invalid-feedback">
+                    {{ operationErrors.toleransi_min[0] }}
+                  </div>
+                </div>
 
-                        <div class="form-row">
-                            <div class="form-group col-md-6">
-                            <label for="toleransi_min">
-                                <i class="fas fa-arrow-down text-danger"></i>
-                                Tolerance Min
-                            </label>
-                            <input
-                                id="toleransi_min"
-                                v-model="operationForm.toleransi_min"
-                                type="text"
-                                class="form-control"
-                                :class="{ 'is-invalid': operationErrors.toleransi_min }"
-                                placeholder="Minimum tolerance value"
-                            />
-                            <small class="help-text">Nilai tolerance minimum</small>
-                            <div v-if="operationErrors.toleransi_min" class="invalid-feedback">
-                                {{ operationErrors.toleransi_min[0] }}
-                            </div>
-                            </div>
-
-                            <div class="form-group col-md-6">
-                            <label for="toleransi_max">
-                                <i class="fas fa-arrow-up text-success"></i>
-                                Tolerance Max
-                            </label>
-                            <input
-                                id="toleransi_max"
-                                v-model="operationForm.toleransi_max"
-                                type="text"
-                                class="form-control"
-                                :class="{ 'is-invalid': operationErrors.toleransi_max }"
-                                placeholder="Maximum tolerance value"
-                            />
-                            <small class="help-text">Nilai tolerance maximum</small>
-                            <div v-if="operationErrors.toleransi_max" class="invalid-feedback">
-                                {{ operationErrors.toleransi_max[0] }}
-                            </div>
-                            </div>
-                        </div>
-
-                        <div class="alert alert-info mt-2">
-                            <i class="fas fa-lightbulb"></i>
-                            <strong>Format contoh:</strong> ±0.1, +0.05/-0.02, 0.1-0.5
-                        </div>
-                        </div>
+                <div class="form-group col-md-6">
+                  <label for="toleransi_max">
+                    <i class="fas fa-arrow-up text-success"></i>
+                    Tolerance Max
+                  </label>
+                  <input
+                    id="toleransi_max"
+                    v-model="operationForm.toleransi_max"
+                    type="text"
+                    class="form-control"
+                    :class="{ 'is-invalid': operationErrors.toleransi_max }"
+                    placeholder="Maximum tolerance value"
+                  />
+                  <small class="help-text">Nilai tolerance maximum</small>
+                  <div v-if="operationErrors.toleransi_max" class="invalid-feedback">
+                    {{ operationErrors.toleransi_max[0] }}
+                  </div>
                 </div>
               </div>
+
+              <div class="alert alert-info mt-2">
+                <i class="fas fa-lightbulb"></i>
+                <strong>Format contoh:</strong> ±0.1, +0.05/-0.02, 0.1-0.5
+              </div>
+            </div>
+
+            <!-- Tambahkan setelah field models -->
+            <div class="form-row">
+                <div class="form-group col-md-4">
+                    <label for="dimensi">Dimension</label>
+                    <input
+                        id="dimensi"
+                        v-model="operationForm.dimensi"
+                        type="text"
+                        class="form-control"
+                        placeholder="Specification dimension"
+                        maxlength="100"
+                    />
+                    <small class="text-muted">Dimension specification for this operation</small>
+                    <small v-if="operationErrors.dimensi" class="error-message">
+                        {{ operationErrors.dimensi[0] }}
+                    </small>
+                </div>
+
+                <!-- <div class="form-group col-md-4">
+                    <label for="toleransi">Toleransi</label>
+                    <input
+                        id="toleransi"
+                        v-model="operationForm.toleransi"
+                        type="text"
+                        class="form-control"
+                        placeholder="Tolerance specification"
+                        maxlength="100"
+                    />
+                    <small class="text-muted">Tolerance specification for this operation</small>
+                    <small v-if="operationErrors.toleransi" class="error-message">
+                        {{ operationErrors.toleransi[0] }}
+                    </small>
+                </div> -->
+
+                <!-- Yield 1 Field -->
+                  <div class="form-group col-md-3">
+                    <label for="yield1">Yield 1</label>
+                    <input
+                      id="yield1"
+                      v-model.number="operationForm.yield1"
+                      type="number"
+                      class="form-control"
+                      placeholder="Enter yield 1 value"
+                      step="0.0001"
+                      min="0"
+                    />
+                    <small class="text-muted">Yield value for this operation</small>
+                    <small v-if="operationErrors.yield1" class="error-message">
+                      {{ operationErrors.yield1[0] }}
+                    </small>
+                  </div>
+            </div>
 
               <!-- Time & Sequence Section -->
               <div class="form-section">
@@ -402,7 +436,7 @@
                       v-model.number="operationForm.run_time"
                       type="number"
                       min="0"
-                      step="0.01"
+                      step="0.000001"
                       class="form-control"
                       required
                     />
@@ -427,7 +461,7 @@
               </div>
 
               <!-- Cost Information Section -->
-              <div class="form-section">
+              <!-- <div class="form-section">
                 <h3 class="section-title">Cost Information</h3>
 
                 <div class="form-row">
@@ -463,24 +497,7 @@
                     </small>
                   </div>
                 </div>
-              </div>
-
-              <div class="form-group col-md-6">
-                <label for="yield1">Yield 1</label>
-                <input
-                    id="yield1"
-                    v-model.number="operationForm.yield1"
-                    type="number"
-                    class="form-control"
-                    placeholder="Enter yield 1 value"
-                    step="0.0001"
-                    min="0"
-                />
-                <small class="text-muted">Yield value for this operation</small>
-                <small v-if="operationErrors.yield1" class="error-message">
-                    {{ operationErrors.yield1[0] }}
-                </small>
-                </div>
+              </div> -->
 
               <!-- Form Actions -->
               <div class="form-actions">
@@ -540,6 +557,7 @@ export default {
     const operations = ref([]);
     const workCenters = ref([]);
     const unitOfMeasures = ref([]);
+    const defaultUomId = ref('');
 
     const selectedOperation = ref(null);
     const showOperationModal = ref(false);
@@ -555,9 +573,9 @@ export default {
       operation_name: '',
       work_flow: '',
       models: '',
-      dimensi: '',
-      toleransi_max: '',
-      toleransi_min: '',
+      dimensi:'',
+      toleransi_max:'',
+      toleransi_min:'',
       sequence: 10,
       setup_time: 0,
       run_time: 0,
@@ -576,19 +594,20 @@ export default {
 
     // Operation table columns
     const operationColumns = [
-    //   { key: 'sequence', label: 'Sequence', sortable: true },
+      // { key: 'sequence', label: 'Sequence', sortable: true },
       { key: 'operation_name', label: 'Operation Name', sortable: true },
       { key: 'work_center_name', label: 'Work Center' },
       { key: 'work_flow', label: 'Work Flow', sortable: true },
+      { key: 'dimensi', label: 'Dimension', sortable: true },
       { key: 'models', label: 'Models', sortable: true },
-      { key: 'dimensi', label: 'Dimensi', sortable: true },
-      { key: 'toleransi', label: 'Toleransi', sortable: true },
       { key: 'setup_time', label: 'Setup Time' },
       { key: 'run_time', label: 'Process Time' },
       { key: 'total_time', label: 'Total Time' },
+      { key: 'toleransi_min', label: 'Tolerance Min', sortable: true },
+      { key: 'toleransi_max', label: 'Tolerance Max', sortable: true },
       { key: 'yield1', label: 'Yield 1', sortable: true },
-      { key: 'labor_cost', label: 'Labor Cost' },
-      { key: 'overhead_cost', label: 'Overhead Cost' },
+    //   { key: 'labor_cost', label: 'Labor Cost' },
+    //   { key: 'overhead_cost', label: 'Overhead Cost' },
     //   { key: 'actions', label: 'Actions' },
     ];
 
@@ -640,30 +659,17 @@ export default {
     };
 
     // Load operations
-const loadOperations = async () => {
+    const loadOperations = async () => {
       isLoadingOperations.value = true;
       try {
         const response = await axios.get(`/routings/${routingId.value}/operations`);
         console.log('Operations data:', response.data.data);
-        // Map operations to add work_center_name property, format total_time, and combine toleransi
-        operations.value = response.data.data.map(op => {
-          const toleransiMin = op.toleransi_min || '';
-          const toleransiMax = op.toleransi_max || '';
-          let toleransiCombined = '';
-          if (toleransiMin && toleransiMax) {
-            toleransiCombined = `${toleransiMax} / ${toleransiMin}`;
-          } else if (toleransiMax) {
-            toleransiCombined = toleransiMax;
-          } else if (toleransiMin) {
-            toleransiCombined = toleransiMin;
-          }
-          return {
-            ...op,
-            work_center_name: op.work_center ? op.work_center.name : '-',
-            total_time: op.total_time || (op.setup_time + op.run_time),
-            toleransi: toleransiCombined
-          };
-        });
+        // Map operations to add work_center_name property and format total_time
+        operations.value = response.data.data.map(op => ({
+          ...op,
+          work_center_name: op.work_center ? op.work_center.name : '-',
+          total_time: op.total_time || (op.setup_time + op.run_time)
+        }));
       } catch (error) {
         console.error('Error loading operations:', error);
       } finally {
@@ -686,6 +692,11 @@ const loadOperations = async () => {
       try {
         const response = await axios.get('/uoms');
         unitOfMeasures.value = response.data.data;
+        // Find the uom_id for "MNT" and set defaultUomId
+        const mntUom = unitOfMeasures.value.find(uom => uom.symbol === 'MNT' || uom.name === 'MNT');
+        if (mntUom) {
+          defaultUomId.value = mntUom.uom_id;
+        }
       } catch (error) {
         console.error('Error loading units of measure:', error);
       }
@@ -700,6 +711,9 @@ const loadOperations = async () => {
       operationForm.operation_name = operation.operation_name;
       operationForm.work_flow = operation.work_flow || '';
       operationForm.models = operation.models || '';
+      operationForm.dimensi = operation.dimensi || '';
+      operationForm.toleransi_max = operation.toleransi_max || '';
+      operationForm.toleransi_min = operation.toleransi_min || '';
       operationForm.sequence = operation.sequence;
       operationForm.setup_time = operation.setup_time;
       operationForm.run_time = operation.run_time;
@@ -707,9 +721,7 @@ const loadOperations = async () => {
       operationForm.labor_cost = operation.labor_cost;
       operationForm.overhead_cost = operation.overhead_cost;
       operationForm.yield1 = operation.yield1 || 0;
-      operationForm.dimensi = operation.dimensi;
-      operationForm.toleransi_max = operation.toleransi_max || '';
-      operationForm.toleransi_min = operation.toleransi_min || '';
+
       showOperationModal.value = true;
     };
 
@@ -720,18 +732,18 @@ const loadOperations = async () => {
       operationForm.operation_name = '';
       operationForm.work_flow = '';
       operationForm.models = '';
+      operationForm.dimensi = '';
+      operationForm.toleransi_max = '';
+      operationForm.toleransi_min = '';
       operationForm.sequence = operations.value.length > 0
         ? Math.max(...operations.value.map(op => op.sequence)) + 10
         : 10;
       operationForm.setup_time = 0;
       operationForm.run_time = 0;
-      operationForm.uom_id = '';
+      operationForm.uom_id = defaultUomId.value;
       operationForm.labor_cost = 0;
       operationForm.overhead_cost = 0;
       operationForm.yield1 = 0;
-      operationForm.dimensi = 0;
-      operationForm.toleransi_max = '';
-      operationForm.toleransi_min = '';
     };
 
     // Cancel operation form
@@ -826,6 +838,13 @@ const loadOperations = async () => {
       }
     };
 
+    // Add new operation
+    const addOperation = () => {
+      selectedOperation.value = null;
+      resetOperationForm();
+      showOperationModal.value = true;
+    };
+
     // Load data on component mount
     onMounted(() => {
       loadRouting();
@@ -862,6 +881,7 @@ const loadOperations = async () => {
       deleteRouting,
       confirmDeleteOperation,
       deleteOperation,
+      addOperation,
     };
   },
 };

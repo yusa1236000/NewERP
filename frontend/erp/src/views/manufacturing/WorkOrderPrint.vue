@@ -210,7 +210,8 @@
               <tr v-for="workflow in workflows" :key="workflow.id">
                 <td>{{ workflow.work_center.name }}</td>
                 <td v-html="workflow.work_flow"></td>
-                <td>{{ workflow.toleransi }}</td>
+                <!-- <td>{{ workflow.toleransi_max }}</td> -->
+                 <td>{{ workflow.toleransi_min }}{{ workflow.toleransi_min && workflow.toleransi_max ? '  ' : '' }}{{ workflow.toleransi_max }}</td>
                 <td>{{ workflow.check_process }}</td>
                 <td>{{ workflow.qty }}</td>
                 <td>{{ workflow.machine }}</td>
@@ -358,7 +359,8 @@ const workflows = computed(() => {
         id: 1,
         work_center: { name: 'SLIT', code: 'SLIT', workcenter_id: 39 },
         work_flow: 'SLIT HN611B YANG RATA',
-        toleransi: '',
+        toleransi_max: '',
+        toleransi_min: '',
         check_process: '',
         qty: '',
         machine: 'FS-13 M',
@@ -371,7 +373,8 @@ const workflows = computed(() => {
         id: 2,
         work_center: { name: 'LAMN', code: 'LAMN', workcenter_id: 22 },
         work_flow: 'LAMN HN BAGIAN LUAR ROLL',
-        toleransi: '',
+        toleransi_max: '',
+        toleransi_min: '',
         check_process: '',
         qty: '',
         machine: 'DD-250(2)',
@@ -384,7 +387,8 @@ const workflows = computed(() => {
         id: 3,
         work_center: { name: 'PUNCH', code: 'PUNCH', workcenter_id: 33 },
         work_flow: 'LANGSUNG DEFLASING',
-        toleransi: '',
+        toleransi_max: '',
+        toleransi_min: '',
         check_process: '',
         qty: '',
         machine: 'DD-250(2)',
@@ -397,7 +401,8 @@ const workflows = computed(() => {
         id: 4,
         work_center: { name: 'PRECUT', code: 'PRECUT', workcenter_id: 29 },
         work_flow: '2 PCS X 10 PCS= 20 PCS',
-        toleransi: '',
+        toleransi_max: '',
+        toleransi_min: '',
         check_process: '',
         qty: '',
         machine: 'MANUAL',
@@ -410,7 +415,8 @@ const workflows = computed(() => {
         id: 5,
         work_center: { name: 'PACK', code: 'PACK', workcenter_id: 27 },
         work_flow: 'SIZE 3X65X580MM',
-        toleransi: '',
+        toleransi_max: '',
+        toleransi_min: '',
         check_process: '',
         qty: '',
         machine: 'MANUAL',
@@ -431,7 +437,8 @@ const workflows = computed(() => {
           id: index + 1,
           work_center: { name: `Work Center ${index + 1}`, code: `WC${index + 1}` },
           work_flow: `Operation ${index + 1}`,
-          toleransi: '',
+          toleransi_max: '',
+          toleransi_min: '',
           check_process: '',
           qty: '',
           machine: 'MANUAL',
@@ -500,7 +507,8 @@ const workflows = computed(() => {
         id: operation.operation_id || index + 1,
         work_center: workCenterObj,
         work_flow: formattedWorkFlow,
-        toleransi: routingOp.toleransi || '',
+        toleransi_min: routingOp.toleransi_min || '',
+        toleransi_max: routingOp.toleransi_max || '',
         check_process: routingOp.check_process || '',
         qty: routingOp.planned_quantity || workOrderData.value.planned_quantity || '',
         machine: machineFromModels,
@@ -518,7 +526,8 @@ const workflows = computed(() => {
         id: 1,
         work_center: { name: 'Error Loading', code: 'ERROR' },
         work_flow: 'Error loading workflow data',
-        toleransi: '',
+        toleransi_max: '',
+        toleransi_min: '',
         check_process: '',
         qty: '',
         machine: 'N/A',

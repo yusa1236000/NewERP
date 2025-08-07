@@ -30,7 +30,7 @@
           </div>
         </div>
 
-        <!-- Main Information Grid -->
+        <!-- Main Information Grid - Updated to 2 rows only -->
         <div class="main-info-grid">
           <div class="info-row">
             <div class="info-cell">
@@ -68,30 +68,12 @@
               <div class="value">{{ formatDate(routing.updated_at) }}</div>
             </div>
           </div>
-          <div class="info-row">
-            <div class="info-cell">
-              <label>Dimension</label>
-              <div class="value">{{ getItemDimension() }}</div>
-            </div>
-            <div class="info-cell">
-              <label>Remarks</label>
-              <div class="value">{{ routing.item?.description || 'REV PACK STD' }}</div>
-            </div>
-            <div class="info-cell">
-              <label>Material Code</label>
-              <div class="value">{{ routing.item?.item_code || '-' }}</div>
-            </div>
-            <div class="info-cell">
-              <label>Material Name</label>
-              <div class="value">{{ routing.item?.name || '-' }}</div>
-            </div>
-          </div>
         </div>
 
-        <!-- Process Information Section -->
-        <div class="process-info-section">
-          <div class="process-grid">
-            <div class="process-row">
+        <!-- Additional Material Information Section - Separated from main grid -->
+        <div class="material-info-section">
+          <div class="material-info-grid">
+            <div class="material-row">
               <div class="process-cell">
                 <label>Cavity</label>
                 <div class="value">{{ routing.cavity || '4' }}</div>
@@ -103,6 +85,30 @@
               <div class="process-cell">
                 <label>Mould 2</label>
                 <div class="value">{{ routing.mould_2 || '-' }}</div>
+              </div>
+              <div class="material-cell">
+                <label>Material Name</label>
+                <div class="value">{{ routing.item?.name || '-' }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Process Information Section -->
+        <div class="process-info-section">
+          <div class="process-grid">
+            <div class="process-row">
+              <div class="material-cell">
+                <label>Dimension</label>
+                <div class="value">{{ getItemDimension() }}</div>
+              </div>
+              <div class="material-cell">
+                <label>Remarks</label>
+                <div class="value">{{ routing.item?.description || 'REV PACK STD' }}</div>
+              </div>
+              <div class="material-cell">
+                <label>Material Code</label>
+                <div class="value">{{ routing.item?.item_code || '-' }}</div>
               </div>
               <div class="process-cell">
                 <label>UOM</label>
@@ -376,12 +382,12 @@ export default {
     const getToleranceMin = (operation) => {
       // Use toleransi field from operation data
       // Assuming toleransi is an object with min and max properties
-      return operation.toleransi?.min || '-';
+      return operation.toleransi_min || '-';
     };
 
     const getToleranceMax = (operation) => {
       // Use toleransi field from operation data
-      return operation.toleransi?.max || '-';
+      return operation.toleransi_max || '-';
     };
 
     const getMachineCode = (operation) => {
@@ -509,6 +515,47 @@ export default {
             }
 
             .info-cell .value {
+              font-size: 9pt;
+              word-break: break-word;
+            }
+
+            /* Material Information Section */
+            .material-info-section {
+              margin-bottom: 10px;
+            }
+
+            .material-info-grid {
+              border: 1px solid #000;
+            }
+
+            .material-row {
+              display: flex;
+              border-bottom: 1px solid #000;
+            }
+
+            .material-row:last-child {
+              border-bottom: none;
+            }
+
+            .material-cell {
+              flex: 1;
+              border-right: 1px solid #000;
+              padding: 4px 6px;
+              min-height: 25px;
+            }
+
+            .material-cell:last-child {
+              border-right: none;
+            }
+
+            .material-cell label {
+              font-size: 8pt;
+              font-weight: bold;
+              display: block;
+              margin-bottom: 2px;
+            }
+
+            .material-cell .value {
               font-size: 9pt;
               word-break: break-word;
             }
@@ -954,6 +1001,47 @@ export default {
   word-break: break-word;
 }
 
+/* Material Information Section - NEW SEPARATE SECTION */
+.material-info-section {
+  margin-bottom: 10px;
+}
+
+.material-info-grid {
+  border: 1px solid #000;
+}
+
+.material-row {
+  display: flex;
+  border-bottom: 1px solid #000;
+}
+
+.material-row:last-child {
+  border-bottom: none;
+}
+
+.material-cell {
+  flex: 1;
+  border-right: 1px solid #000;
+  padding: 4px 6px;
+  min-height: 25px;
+}
+
+.material-cell:last-child {
+  border-right: none;
+}
+
+.material-cell label {
+  font-size: 8pt;
+  font-weight: bold;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.material-cell .value {
+  font-size: 9pt;
+  word-break: break-word;
+}
+
 /* Process Information Section */
 .process-info-section {
   margin-bottom: 10px;
@@ -1187,11 +1275,13 @@ export default {
     padding: 10px;
   }
 
-  .main-info-grid .info-row {
+  .main-info-grid .info-row,
+  .material-info-grid .material-row {
     flex-direction: column;
   }
 
-  .info-cell {
+  .info-cell,
+  .material-cell {
     border-right: none;
     border-bottom: 1px solid #000;
   }
