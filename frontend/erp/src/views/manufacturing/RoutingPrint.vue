@@ -30,7 +30,7 @@
           </div>
         </div>
 
-        <!-- Main Information Grid - Updated to 2 rows only -->
+        <!-- Main Information Grid - 2 rows -->
         <div class="main-info-grid">
           <div class="info-row">
             <div class="info-cell">
@@ -70,7 +70,7 @@
           </div>
         </div>
 
-        <!-- Additional Material Information Section - Separated from main grid -->
+        <!-- Additional Material Information Section -->
         <div class="material-info-section">
           <div class="material-info-grid">
             <div class="material-row">
@@ -86,36 +86,13 @@
                 <label>Mould 2</label>
                 <div class="value">{{ routing.mould_2 || '-' }}</div>
               </div>
-              <div class="material-cell">
-                <label>Material Name</label>
-                <div class="value">{{ routing.item?.name || '-' }}</div>
-              </div>
             </div>
           </div>
         </div>
 
-        <!-- Process Information Section -->
+        <!-- Process Information Section - Updated to remove UOM and Process -->
         <div class="process-info-section">
           <div class="process-grid">
-            <div class="process-row">
-              <div class="material-cell">
-                <label>Dimension</label>
-                <div class="value">{{ getItemDimension() }}</div>
-              </div>
-              <div class="material-cell">
-                <label>Remarks</label>
-                <div class="value">{{ routing.item?.description || 'REV PACK STD' }}</div>
-              </div>
-              <div class="material-cell">
-                <label>Material Code</label>
-                <div class="value">{{ routing.item?.item_code || '-' }}</div>
-              </div>
-              <div class="process-cell">
-                <label>UOM</label>
-                <div class="value">{{ routing.item?.unitOfMeasure?.symbol || 'PCS' }}</div>
-              </div>
-            </div>
-
             <div class="process-row">
               <div class="process-cell">
                 <label>Yield 1</label>
@@ -128,10 +105,6 @@
               <div class="process-cell">
                 <label>Y.REM1</label>
                 <div class="value">{{ routing.yield_rem_1 || '-' }}</div>
-              </div>
-              <div class="process-cell">
-                <label>Process</label>
-                <div class="value">{{ routing.process || 'MANUFACTURING' }}</div>
               </div>
             </div>
 
@@ -148,58 +121,70 @@
                 <label>Y.REM2</label>
                 <div class="value">{{ routing.yield_rem_2 || '-' }}</div>
               </div>
-              <div class="process-cell">
-                <label>Yield %</label>
-                <div class="value">{{ routing.yield ? routing.yield + '%' : '-' }}</div>
-              </div>
             </div>
           </div>
         </div>
 
-        <!-- Operations Table -->
-        <div class="operations-table-container">
-          <table class="operations-table">
+        <!-- Material Detail Information Table -->
+        <div class="material-table-container" style="margin-bottom: 8px !important; padding-bottom: 2px !important;">
+          <table class="material-table" style="border: 1px solid #000 !important; border-collapse: collapse; width: 100%; table-layout: fixed;">
             <thead>
               <tr>
-                <th>Process</th>
-                <th>Dimensions</th>
-                <th>Add.Instructions and Remarks</th>
-                <th colspan="2">Tolerance</th>
-                <th>Machine</th>
-                <th>SetUp Time</th>
-                <th>Proc.Time per Cycle</th>
-                <th>Yld 1</th>
-                <th>Yld 2</th>
-                <th>No Pc</th>
+                <th style="border: 1px solid #000 !important; background-color: #f0f0f0; width: 15%; padding: 2px 4px; font-size: 7pt; font-weight: bold;">Material Code</th>
+                <th style="border: 1px solid #000 !important; background-color: #f0f0f0; width: 12%; padding: 2px 4px; font-size: 7pt; font-weight: bold;">Material Name</th>
+                <th style="border: 1px solid #000 !important; background-color: #f0f0f0; width: 20%; padding: 2px 4px; font-size: 7pt; font-weight: bold;">Dimension</th>
+                <th style="border: 1px solid #000 !important; background-color: #f0f0f0; width: 12%; padding: 2px 4px; font-size: 7pt; font-weight: bold;">Yield</th>
+                <th style="border: 1px solid #000 !important; background-color: #f0f0f0; width: 10%; padding: 2px 4px; font-size: 7pt; font-weight: bold;">UOM</th>
+                <th style="border: 1px solid #000 !important; background-color: #f0f0f0; width: 31%; padding: 2px 4px; font-size: 7pt; font-weight: bold;">Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="material-data-row">
+                <td style="border: 1px solid #000 !important; width: 15%; padding: 2px 4px; font-size: 8pt; text-align: left; vertical-align: middle; word-wrap: break-word; overflow-wrap: break-word;">{{ routing.item?.item_code || '-' }}</td>
+                <td style="border: 1px solid #000 !important; width: 12%; padding: 2px 4px; font-size: 8pt; text-align: left; vertical-align: middle; word-wrap: break-word; overflow-wrap: break-word;">{{ routing.item?.name || '-' }}</td>
+                <td style="border: 1px solid #000 !important; width: 20%; padding: 2px 4px; font-size: 8pt; text-align: left; vertical-align: middle; word-wrap: break-word; overflow-wrap: break-word;">{{ getItemDimension() }}</td>
+                <td style="border: 1px solid #000 !important; width: 12%; padding: 2px 4px; font-size: 8pt; text-align: center; vertical-align: middle;">{{ routing.yield ? routing.yield + '' : '-' }}</td>
+                <td style="border: 1px solid #000 !important; width: 10%; padding: 2px 4px; font-size: 8pt; text-align: center; vertical-align: middle;">{{ routing.item?.unitOfMeasure?.symbol || 'PCS' }}</td>
+                <td style="border: 1px solid #000 !important; width: 31%; padding: 2px 4px; font-size: 8pt; text-align: left; vertical-align: middle; word-wrap: break-word; overflow-wrap: break-word;">{{ routing.item?.description || 'REV PACK STD' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Operations Table -->
+        <div class="operations-table-container" style="margin-top: 2px !important; margin-bottom: 15px !important;">
+          <table class="operations-table" style="width: 100%; table-layout: fixed;">
+            <thead>
+              <tr>
+                <th style="width: 15%;" rowspan="2">Process</th>
+                <th style="width: 12%;" rowspan="2">Dimensions</th>
+                <th style="width: 20%;" rowspan="2">Add.Instructions and Remarks</th>
+                <th colspan="2" style="width: 12%;">Tolerance</th>
+                <th style="width: 10%;" rowspan="2">Machine</th>
+                <th style="width: 8%;" rowspan="2">SetUp Time</th>
+                <th style="width: 8%;" rowspan="2">Proc.Time per Cycle</th>
+                <th style="width: 6%;" rowspan="2">Yld 1</th>
+                <th style="width: 6%;" rowspan="2">Yld 2</th>
+                <th style="width: 6%;" rowspan="2">No Pc</th>
                </tr>
               <tr class="sub-header">
-                <th></th>
-                <th></th>
-                <th></th>
-                <th>Min</th>
-                <th>Max</th>
-                <th></th>
-                <th></th>
-                <th></th>
-                <th></th>
-                <th></th>
-                <th></th>
+                <th style="width: 6%;">Min</th>
+                <th style="width: 6%;">Max</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="operation in operations" :key="operation.operation_id" class="operation-row">
                 <td class="process-name">
-                  <div class="process-code">{{ operation.operation_name }}</div>
-                  <div class="process-description">{{ operation.work_flow || '' }}</div>
+                  <div class="process-notes">{{ operation.operation_name }}</div>
+                  <div class="machine-code">{{ getMachineCode(operation) }} </div>
                 </td>
                 <td class="dimensions">{{ getDimensionText(operation) }}</td>
                 <td class="instructions">
                   <div class="instruction-text">{{ getInstructionText(operation) }}</div>
-                  <div class="additional-notes">{{ operation.models || '' }}</div>
                 </td>
                 <td class="tolerance-min">{{ getToleranceMin(operation) }}</td>
                 <td class="tolerance-max">{{ getToleranceMax(operation) }}</td>
-                <td class="machine">{{ getMachineCode(operation) }}</td>
+                <td class="machine">{{ operation.models || '' }}</td>
                 <td class="setup-time">{{ formatTime(operation.setup_time) }}</td>
                 <td class="process-time">{{ formatTime(operation.run_time) }}</td>
                 <td class="yield-1">{{ getYieldValue(operation) }}</td>
@@ -210,21 +195,25 @@
           </table>
         </div>
 
-        <!-- File Path Information (moved from header) -->
-        <div class="file-path-section">
-          <div class="file-path">\\192.178.0.132\10DRAWING\routing\{{ routing.routing_code }}.PDF</div>
+        <!-- Catatan Penting Section -->
+        <div class="catatan-penting-section">
+          <div class="catatan-penting-content">
+            <div class="catatan-penting-text">
+              <strong><u>Important Notes :</u></strong>
+            </div>
+          </div>
         </div>
 
         <!-- Footer -->
-        <div class="document-footer">
-          <div class="signature-section">
-            <div class="signature-box">
-              <label>Prepared By</label>
-              <div class="signature-line"></div>
-            </div>
-            <div class="signature-box">
-              <label>Approved By</label>
-              <div class="signature-line"></div>
+        <div class="document-footer" style="margin-top: 10px !important; border-top: none !important; padding-top: 10px !important;">
+          <div class="signature-section" style="display: flex !important; justify-content: center !important; margin-bottom: 20px !important;">
+            <div class="signature-container" style="width: 360px !important; height: 100px !important; border: 2px solid #000 !important; display: flex !important;">
+              <div class="signature-half" style="width: 50% !important; text-align: center !important; padding: 8px !important; border-right: 1px solid #000 !important;">
+                <div style="font-weight: bold !important; font-size: 8pt !important; margin-bottom: 5px !important;">Prepared By</div>
+              </div>
+              <div class="signature-half" style="width: 50% !important; text-align: center !important; padding: 8px !important;">
+                <div style="font-weight: bold !important; font-size: 8pt !important; margin-bottom: 5px !important;">Approved By</div>
+              </div>
             </div>
           </div>
         </div>
@@ -353,7 +342,6 @@ export default {
 
     // Operation-specific helper functions using existing data
     const getDimensionText = (operation) => {
-      // Use dimensi field from operation data
       return operation.dimensi || '-';
     };
 
@@ -380,13 +368,10 @@ export default {
     };
 
     const getToleranceMin = (operation) => {
-      // Use toleransi field from operation data
-      // Assuming toleransi is an object with min and max properties
       return operation.toleransi_min || '-';
     };
 
     const getToleranceMax = (operation) => {
-      // Use toleransi field from operation data
       return operation.toleransi_max || '-';
     };
 
@@ -408,7 +393,6 @@ export default {
     };
 
     const getYieldValue = (operation) => {
-      // Use yield1 field from operation data
       return operation.yield1 ? formatNumber(operation.yield1) : '0';
     };
 
@@ -421,18 +405,14 @@ export default {
       return '0.00';
     };
 
-    // Print document function - Enhanced like SalesOrderPrint
+    // Print document function
     const printDocument = () => {
       if (!routing.value) return;
 
-      // Create a new window for printing
       const printWindow = window.open('', '_blank');
-
-      // Get the current document content
       const documentElement = document.getElementById('printDocument');
       const documentHTML = documentElement.outerHTML;
 
-      // Create the print HTML with optimized styling
       const printHTML = `
         <!DOCTYPE html>
         <html>
@@ -462,11 +442,10 @@ export default {
               padding: 0;
             }
 
-            /* Header Section */
             .document-header {
               text-align: center;
               margin-bottom: 10px;
-              border-bottom: 2px solid #000;
+              border-bottom: 3px solid #000;
               padding-bottom: 5px;
             }
 
@@ -476,140 +455,128 @@ export default {
               margin: 0;
             }
 
-            .header-classification {
-              font-size: 9pt;
-              margin-top: 2px;
-            }
-
-            /* Main Information Grid */
-            .main-info-grid {
-              border: 1px solid #000;
+            .main-info-grid, .material-info-grid, .process-grid {
+              border: 2px solid #000;
               margin-bottom: 10px;
             }
 
-            .info-row {
+            .info-row, .material-row, .process-row {
               display: flex;
               border-bottom: 1px solid #000;
             }
 
-            .info-row:last-child {
+            .info-row:last-child, .material-row:last-child, .process-row:last-child {
               border-bottom: none;
             }
 
-            .info-cell {
+            .info-cell, .material-cell,             .process-cell {
               flex: 1;
               border-right: 1px solid #000;
               padding: 4px 6px;
               min-height: 25px;
+              width: 33.33%;
             }
 
-            .info-cell:last-child {
+            .info-cell:last-child, .material-cell:last-child, .process-cell:last-child {
               border-right: none;
             }
 
-            .info-cell label {
+            .info-cell label, .material-cell label, .process-cell label {
               font-size: 8pt;
               font-weight: bold;
               display: block;
               margin-bottom: 2px;
             }
 
-            .info-cell .value {
+            .info-cell .value, .material-cell .value, .process-cell .value {
               font-size: 9pt;
               word-break: break-word;
             }
 
-            /* Material Information Section */
-            .material-info-section {
-              margin-bottom: 10px;
+            .material-table-container {
+              margin-bottom: 8px !important;
+              padding-bottom: 2px !important;
             }
 
-            .material-info-grid {
-              border: 1px solid #000;
-            }
-
-            .material-row {
-              display: flex;
-              border-bottom: 1px solid #000;
-            }
-
-            .material-row:last-child {
-              border-bottom: none;
-            }
-
-            .material-cell {
-              flex: 1;
-              border-right: 1px solid #000;
-              padding: 4px 6px;
-              min-height: 25px;
-            }
-
-            .material-cell:last-child {
-              border-right: none;
-            }
-
-            .material-cell label {
+            .material-table {
+              width: 100%;
+              border-collapse: collapse;
+              border: 1px solid #000 !important;
               font-size: 8pt;
+              table-layout: fixed;
+            }
+
+            .material-table th {
+              border: 1px solid #000 !important;
+              padding: 2px 4px;
+              text-align: center;
+              vertical-align: middle;
+              background-color: #f0f0f0;
               font-weight: bold;
-              display: block;
-              margin-bottom: 2px;
+              font-size: 7pt;
             }
 
-            .material-cell .value {
-              font-size: 9pt;
-              word-break: break-word;
+            .material-table td {
+              border: 1px solid #000 !important;
+              padding: 2px 4px;
+              text-align: center;
+              vertical-align: middle;
+              font-size: 8pt;
+              word-wrap: break-word;
+              overflow-wrap: break-word;
             }
 
-            /* Process Information Section */
-            .process-info-section {
-              margin-bottom: 10px;
-            }
-
-            .process-grid {
-              border: 1px solid #000;
-            }
-
-            .process-row {
-              display: flex;
-              border-bottom: 1px solid #000;
-            }
-
-            .process-row:last-child {
-              border-bottom: none;
-            }
-
-            .process-cell {
-              flex: 1;
-              border-right: 1px solid #000;
-              padding: 4px 6px;
+            .material-data-row {
               min-height: 20px;
             }
 
-            .process-cell:last-child {
-              border-right: none;
+            .material-code {
+              width: 15%;
+              text-align: left !important;
+              border: 2px solid #000 !important;
             }
 
-            .process-cell label {
-              font-size: 8pt;
-              font-weight: bold;
-              display: block;
-              margin-bottom: 1px;
+            .material-name {
+              width: 20%;
+              text-align: left !important;
+              border: 2px solid #000 !important;
             }
 
-            .process-cell .value {
-              font-size: 9pt;
+            .material-dimension {
+              width: 20%;
+              text-align: left !important;
+              border: 2px solid #000 !important;
             }
 
-            /* Operations Table */
+            .material-yield {
+              width: 6%;
+              text-align: center !important;
+              border: 2px solid #000 !important;
+            }
+
+            .material-uom {
+              width: 6%;
+              text-align: center !important;
+              border: 2px solid #000 !important;
+            }
+
+            .material-remarks {
+              width: 33%;
+              text-align: left !important;
+              border: 2px solid #000 !important;
+            }
+
             .operations-table-container {
-              margin-bottom: 15px;
+              margin-bottom: 15px !important;
+              margin-top: 2px !important;
             }
 
             .operations-table {
               width: 100%;
               border-collapse: collapse;
-              border: 1px solid #000;
+              border: 2px solid #000;
               font-size: 8pt;
+              table-layout: fixed;
             }
 
             .operations-table th,
@@ -624,30 +591,22 @@ export default {
               background-color: #f0f0f0;
               font-weight: bold;
               font-size: 7pt;
+              border: 1px solid #000;
             }
 
             .operations-table .sub-header th {
               background-color: #e8e8e8;
               height: 15px;
+              border: 1px solid #000;
             }
 
-            .operation-row {
-              min-height: 25px;
+            .operations-table td {
+              border: 1px solid #000;
             }
 
             .process-name {
               text-align: left;
               width: 15%;
-            }
-
-            .process-code {
-              font-weight: bold;
-              font-size: 8pt;
-            }
-
-            .process-description {
-              font-size: 7pt;
-              color: #666;
             }
 
             .dimensions {
@@ -658,16 +617,6 @@ export default {
             .instructions {
               width: 20%;
               text-align: left;
-            }
-
-            .instruction-text {
-              font-size: 8pt;
-            }
-
-            .additional-notes {
-              font-size: 7pt;
-              color: #666;
-              margin-top: 1px;
             }
 
             .tolerance-min,
@@ -693,59 +642,58 @@ export default {
               width: 6%;
             }
 
-            .empty-row {
-              height: 20px;
+            .catatan-penting-section {
+              margin: 15px 0 20px 0;
+              border-top: 2px solid #000;
+              padding: 10px 0;
             }
 
-            /* File Path Section */
-            .file-path-section {
-              margin-bottom: 15px;
-              text-align: center;
-              border: 1px solid #000;
-              padding: 5px;
+            .catatan-penting-content {
+              text-align: left;
             }
 
-            .file-path {
-              font-size: 8pt;
-              color: #666;
-              font-family: monospace;
+            .catatan-penting-text {
+              font-size: 10pt;
+              font-weight: normal;
             }
 
-            /* Footer */
+            .catatan-penting-text strong {
+              font-weight: bold;
+            }
+
             .document-footer {
-              margin-top: 20px;
-              border-top: 1px solid #000;
-              padding-top: 10px;
+              margin-top: 10px !important;
+              border-top: none !important;
+              padding-top: 10px !important;
             }
 
             .signature-section {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 20px;
+              display: flex !important;
+              justify-content: center !important;
+              margin-bottom: 20px !important;
             }
 
-            .signature-box {
-              width: 45%;
-              text-align: center;
+            .signature-container {
+              width: 360px !important;
+              height: 100px !important;
+              border: 2px solid #000 !important;
+              display: flex !important;
             }
 
-            .signature-box label {
-              font-weight: bold;
-              font-size: 9pt;
-              display: block;
-              margin-bottom: 10px;
+            .signature-half {
+              width: 50% !important;
+              text-align: center !important;
+              padding: 8px !important;
             }
 
-            .signature-line {
-              border-bottom: 1px solid #000;
-              height: 30px;
-              margin-bottom: 5px;
+            .signature-half:first-child {
+              border-right: 1px solid #000 !important;
             }
 
-            .signature-name,
-            .signature-date {
-              font-size: 8pt;
-              margin-top: 2px;
+            .signature-half div {
+              font-weight: bold !important;
+              font-size: 8pt !important;
+              margin-bottom: 5px !important;
             }
 
             @media print {
@@ -767,11 +715,9 @@ export default {
         </html>
       `;
 
-      // Write the HTML to the new window
       printWindow.document.write(printHTML);
       printWindow.document.close();
 
-      // Wait for content to load, then print
       printWindow.onload = () => {
         setTimeout(() => {
           printWindow.print();
@@ -780,7 +726,7 @@ export default {
       };
     };
 
-    // Print PDF function - Using html2pdf like SalesOrderPrint
+    // Print PDF function
     const printPdf = async () => {
       if (isLoading.value) {
         console.warn("Data is still loading. Please wait before printing PDF.");
@@ -860,7 +806,6 @@ export default {
 </script>
 
 <style scoped>
-/* Component styles - enhanced like SalesOrderPrint */
 .print-container {
   min-height: 100vh;
   background-color: #f1f5f9;
@@ -920,7 +865,6 @@ export default {
   background-color: #dc2626;
 }
 
-/* Document wrapper for A4 sizing */
 .document-wrapper {
   width: 210mm;
   min-height: 297mm;
@@ -944,11 +888,10 @@ export default {
   box-sizing: border-box;
 }
 
-/* Header Section */
 .document-header {
   text-align: center;
   margin-bottom: 10px;
-  border-bottom: 2px solid #000;
+  border-bottom: 3px solid #000;
   padding-bottom: 5px;
 }
 
@@ -958,131 +901,43 @@ export default {
   margin: 0;
 }
 
-.header-classification {
-  font-size: 9pt;
-  margin-top: 2px;
-}
-
-/* Main Information Grid */
-.main-info-grid {
-  border: 1px solid #000;
+.main-info-grid, .material-info-grid, .process-grid {
+  border: 2px solid #000;
   margin-bottom: 10px;
 }
 
-.info-row {
+.info-row, .material-row, .process-row {
   display: flex;
   border-bottom: 1px solid #000;
 }
 
-.info-row:last-child {
+.info-row:last-child, .material-row:last-child, .process-row:last-child {
   border-bottom: none;
 }
 
-.info-cell {
+.info-cell, .process-cell {
   flex: 1;
   border-right: 1px solid #000;
   padding: 4px 6px;
   min-height: 25px;
 }
 
-.info-cell:last-child {
+.info-cell:last-child, .process-cell:last-child {
   border-right: none;
 }
 
-.info-cell label {
+.info-cell label, .process-cell label {
   font-size: 8pt;
   font-weight: bold;
   display: block;
   margin-bottom: 2px;
 }
 
-.info-cell .value {
+.info-cell .value, .process-cell .value {
   font-size: 9pt;
   word-break: break-word;
 }
 
-/* Material Information Section - NEW SEPARATE SECTION */
-.material-info-section {
-  margin-bottom: 10px;
-}
-
-.material-info-grid {
-  border: 1px solid #000;
-}
-
-.material-row {
-  display: flex;
-  border-bottom: 1px solid #000;
-}
-
-.material-row:last-child {
-  border-bottom: none;
-}
-
-.material-cell {
-  flex: 1;
-  border-right: 1px solid #000;
-  padding: 4px 6px;
-  min-height: 25px;
-}
-
-.material-cell:last-child {
-  border-right: none;
-}
-
-.material-cell label {
-  font-size: 8pt;
-  font-weight: bold;
-  display: block;
-  margin-bottom: 2px;
-}
-
-.material-cell .value {
-  font-size: 9pt;
-  word-break: break-word;
-}
-
-/* Process Information Section */
-.process-info-section {
-  margin-bottom: 10px;
-}
-
-.process-grid {
-  border: 1px solid #000;
-}
-
-.process-row {
-  display: flex;
-  border-bottom: 1px solid #000;
-}
-
-.process-row:last-child {
-  border-bottom: none;
-}
-
-.process-cell {
-  flex: 1;
-  border-right: 1px solid #000;
-  padding: 4px 6px;
-  min-height: 20px;
-}
-
-.process-cell:last-child {
-  border-right: none;
-}
-
-.process-cell label {
-  font-size: 8pt;
-  font-weight: bold;
-  display: block;
-  margin-bottom: 1px;
-}
-
-.process-cell .value {
-  font-size: 9pt;
-}
-
-/* Operations Table */
 .operations-table-container {
   margin-bottom: 15px;
 }
@@ -1090,8 +945,9 @@ export default {
 .operations-table {
   width: 100%;
   border-collapse: collapse;
-  border: 1px solid #000;
+  border: 2px solid #000;
   font-size: 8pt;
+  table-layout: fixed;
 }
 
 .operations-table th,
@@ -1106,11 +962,17 @@ export default {
   background-color: #f0f0f0;
   font-weight: bold;
   font-size: 7pt;
+  border: 1px solid #000;
 }
 
 .operations-table .sub-header th {
   background-color: #e8e8e8;
   height: 15px;
+  border: 1px solid #000;
+}
+
+.operations-table td {
+  border: 1px solid #000;
 }
 
 .operation-row {
@@ -1175,11 +1037,10 @@ export default {
   width: 6%;
 }
 
-/* File Path Section (moved from header) */
 .file-path-section {
   margin-bottom: 15px;
   text-align: center;
-  border: 1px solid #000;
+  border: 2px solid #000;
   padding: 5px;
 }
 
@@ -1189,44 +1050,40 @@ export default {
   font-family: monospace;
 }
 
-/* Footer */
 .document-footer {
   margin-top: 20px;
-  border-top: 1px solid #000;
+  border-top: 2px solid #000;
   padding-top: 10px;
 }
 
 .signature-section {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   margin-bottom: 20px;
+  gap: 10px;
 }
 
 .signature-box {
-  width: 45%;
+  width: 150px;
+  height: 80px;
+  border: 2px solid #000;
   text-align: center;
 }
 
-.signature-box label {
+.signature-header {
   font-weight: bold;
   font-size: 9pt;
-  display: block;
-  margin-bottom: 10px;
-}
-
-.signature-line {
+  padding: 4px;
   border-bottom: 1px solid #000;
-  height: 30px;
-  margin-bottom: 5px;
+  background-color: white;
 }
 
-.signature-name,
-.signature-date {
-  font-size: 8pt;
-  margin-top: 2px;
+.signature-area {
+  height: 50px;
+  border: none;
+  background-color: white;
 }
 
-/* Loading and Error States */
 .loading-indicator,
 .error-state {
   display: flex;
@@ -1249,7 +1106,6 @@ export default {
   color: #dc3545;
 }
 
-/* Print media query */
 @media print {
   .no-print {
     display: none !important;
@@ -1261,7 +1117,6 @@ export default {
   }
 }
 
-/* Responsive adjustments */
 @media (max-width: 768px) {
   .print-container {
     padding: 1rem;
@@ -1276,17 +1131,19 @@ export default {
   }
 
   .main-info-grid .info-row,
-  .material-info-grid .material-row {
+  .material-info-grid .material-row,
+  .process-grid .process-row {
     flex-direction: column;
   }
 
   .info-cell,
-  .material-cell {
+  .process-cell {
     border-right: none;
     border-bottom: 1px solid #000;
   }
 
-  .operations-table {
+  .operations-table,
+  .material-table {
     font-size: 7pt;
   }
 

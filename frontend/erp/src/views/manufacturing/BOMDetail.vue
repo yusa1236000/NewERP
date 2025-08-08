@@ -19,13 +19,13 @@
           </div>
         </div>
       </div>
-      
+
       <div class="card-body">
         <div v-if="isLoading" class="loading-state">
           <i class="fas fa-spinner fa-spin"></i>
           <p>Loading BOM details...</p>
         </div>
-        
+
         <div v-else class="bom-details">
           <div class="row">
             <div class="col-md-6">
@@ -33,29 +33,29 @@
                 <label>Item:</label>
                 <p>{{ bom.item?.name || 'N/A' }} {{ bom.item?.item_code ? `(${bom.item.item_code})` : '' }}</p>
               </div>
-              
+
               <div class="detail-item">
                 <label>Revision:</label>
                 <p>{{ bom.revision || 'N/A' }}</p>
               </div>
-              
+
               <div class="detail-item">
                 <label>Effective Date:</label>
                 <p>{{ formatDate(bom.effective_date) }}</p>
               </div>
             </div>
-            
+
             <div class="col-md-6">
               <div class="detail-item">
                 <label>Standard Quantity:</label>
                 <p>{{ bom.standard_quantity || 0 }} {{ bom.unitOfMeasure?.symbol || '' }}</p>
               </div>
-              
+
               <div class="detail-item">
                 <label>Status:</label>
                 <p>{{ bom.status || 'N/A' }}</p>
               </div>
-              
+
               <div class="detail-item">
                 <label>BOM Type:</label>
                 <p>
@@ -94,7 +94,7 @@
             </div>
             <p class="capacity-label">Maximum Possible Production</p>
           </div>
-          
+
           <h4 class="mt-4 mb-3">Based on Current Materials Stock:</h4>
           <div class="table-container">
             <table class="table">
@@ -114,7 +114,7 @@
                   <td>{{ material.yield_ratio ? formatNumber(material.yield_ratio) : 'N/A' }}</td>
                   <td>{{ formatNumber(material.potential_yield) }}</td>
                   <td>
-                    <span 
+                    <span
                       class="badge"
                       :class="isLimitingMaterial(material) ? 'badge-danger' : 'badge-success'"
                     >
@@ -139,7 +139,7 @@
           </button>
         </div>
       </div>
-      
+
       <div class="card-body">
         <div class="table-container">
           <table class="table" v-if="!isLoadingLines && bomLines.length > 0">
@@ -159,7 +159,7 @@
               <tr v-for="line in bomLines" :key="line.line_id">
                 <td>{{ line.item?.name }} ({{ line.item?.item_code }})</td>
                 <td>{{ formatNumber(line.quantity) }}</td>
-                <td>{{ line.unitOfMeasure?.symbol }}</td>
+                <td>{{ line.unitOfMeasure?.name }}</td>
                 <td class="text-center">
                   <span v-if="line.is_critical" class="badge badge-danger">Yes</span>
                   <span v-else class="badge badge-secondary">No</span>
@@ -180,9 +180,9 @@
                     <button @click="confirmDeleteLine(line)" class="btn btn-sm btn-danger">
                       <i class="fas fa-trash"></i>
                     </button>
-                    <button 
-                      v-if="line.is_yield_based" 
-                      @click="calculateYield(line)" 
+                    <button
+                      v-if="line.is_yield_based"
+                      @click="calculateYield(line)"
                       class="btn btn-sm btn-info"
                       title="Calculate potential yield"
                     >
@@ -193,12 +193,12 @@
               </tr>
             </tbody>
           </table>
-          
+
           <div v-else-if="isLoadingLines" class="loading-state">
             <i class="fas fa-spinner fa-spin"></i>
             <p>Loading components...</p>
           </div>
-          
+
           <div v-else class="empty-state">
             <i class="fas fa-boxes"></i>
             <p>No components found for this BOM.</p>
@@ -255,7 +255,7 @@
                 <p>{{ formatNumber(yieldResult.material.quantity) }} {{ yieldResult.material.uom }}</p>
               </div>
             </div>
-            
+
             <div class="result-section">
               <h4>Finished Product</h4>
               <div class="detail-row">
@@ -267,7 +267,7 @@
                 <p>{{ formatNumber(yieldResult.finished_product.yield_quantity) }} {{ yieldResult.finished_product.uom }}</p>
               </div>
             </div>
-            
+
             <div class="result-section">
               <h4>Yield Parameters</h4>
               <div class="detail-row">
@@ -279,25 +279,25 @@
                 <p>{{ formatPercentage(yieldResult.shrinkage_factor) }}</p>
               </div>
             </div>
-            
+
             <div class="formula-explanation">
               <p>
                 <strong>Formula:</strong> Material Quantity × Yield Ratio × (1 - Shrinkage Factor) = Yield Quantity
               </p>
               <p>
-                {{ formatNumber(yieldResult.material.quantity) }} × 
-                {{ formatNumber(yieldResult.yield_ratio) }} × 
-                (1 - {{ formatNumber(yieldResult.shrinkage_factor) }}) = 
+                {{ formatNumber(yieldResult.material.quantity) }} ×
+                {{ formatNumber(yieldResult.yield_ratio) }} ×
+                (1 - {{ formatNumber(yieldResult.shrinkage_factor) }}) =
                 {{ formatNumber(yieldResult.finished_product.yield_quantity) }}
               </p>
             </div>
           </div>
-          
+
           <div v-else class="loading-state">
             <i class="fas fa-spinner fa-spin"></i>
             <p>Calculating yield...</p>
           </div>
-          
+
           <div class="modal-footer">
             <button @click="showYieldModal = false" class="btn btn-primary">Close</button>
           </div>
@@ -332,7 +332,7 @@ export default {
     const route = useRoute();
     const router = useRouter();
     const bomId = route.params.id;
-    
+
     // Data
     const bom = ref({});
     const bomLines = ref([]);
@@ -340,32 +340,32 @@ export default {
     const isLoadingLines = ref(true);
     const isLoadingCapacity = ref(false);
     const capacityData = ref(null);
-    
+
     // Modals state
     const showDeleteModal = ref(false);
     const showDeleteLineModal = ref(false);
     const showAddLineModal = ref(false);
     const showEditLineModal = ref(false);
     const showYieldModal = ref(false);
-    
+
     // Temp storage for modal operations
     const lineToDelete = ref(null);
     const lineToEdit = ref({});
     const yieldResult = ref(null);
-    
+
     // Computed
     const hasYieldBasedComponents = computed(() => {
       return bomLines.value.some(line => line.is_yield_based);
     });
-    
+
     // Fetch BOM data
     const fetchBOM = async () => {
       isLoading.value = true;
-      
+
       try {
         const response = await axios.get(`/boms/${bomId}`);
         bom.value = response.data.data;
-        
+
         // If BOM lines are included in the response
         if (bom.value.bomLines) {
           bomLines.value = bom.value.bomLines;
@@ -379,11 +379,11 @@ export default {
         isLoading.value = false;
       }
     };
-    
+
     // Fetch BOM lines
     const fetchBOMLines = async () => {
       isLoadingLines.value = true;
-      
+
       try {
         const response = await axios.get(`/boms/${bomId}/lines`);
         bomLines.value = response.data.data;
@@ -393,11 +393,11 @@ export default {
         isLoadingLines.value = false;
       }
     };
-    
+
     // Calculate maximum production capacity
     const calculateCapacity = async () => {
       isLoadingCapacity.value = true;
-      
+
       try {
         const response = await axios.get(`/boms/${bomId}/maximum-yield`);
         capacityData.value = response.data.data;
@@ -407,35 +407,35 @@ export default {
         isLoadingCapacity.value = false;
       }
     };
-    
+
     // Calculate yield for a specific component
     const calculateYield = async (line) => {
       if (!line.is_yield_based) return;
-      
+
       showYieldModal.value = true;
       yieldResult.value = null;
-      
+
       try {
         // Show form to input material quantity
         const materialQuantity = prompt('Enter material quantity for yield calculation:', line.quantity);
-        
+
         if (materialQuantity === null) {
           // User cancelled
           showYieldModal.value = false;
           return;
         }
-        
+
         const quantity = parseFloat(materialQuantity);
         if (isNaN(quantity) || quantity <= 0) {
           alert('Please enter a valid quantity greater than zero.');
           showYieldModal.value = false;
           return;
         }
-        
+
         const response = await axios.post(`/boms/${bomId}/lines/${line.line_id}/calculate-yield`, {
           material_quantity: quantity
         });
-        
+
         yieldResult.value = response.data.data;
       } catch (error) {
         console.error('Error calculating yield:', error);
@@ -443,50 +443,50 @@ export default {
         alert('Failed to calculate yield.');
       }
     };
-    
+
     // Check if this material is the limiting factor
     const isLimitingMaterial = (material) => {
       if (!capacityData.value || !capacityData.value.maximum_yield) return false;
-      
+
       // The limiting material is the one whose potential yield equals the maximum yield
       return Math.abs(material.potential_yield - capacityData.value.maximum_yield) < 0.001;
     };
-    
+
     // Delete operations
     const confirmDelete = () => {
       showDeleteModal.value = true;
     };
-    
+
     const deleteBOM = async () => {
       try {
         await axios.delete(`/boms/${bomId}`);
         router.push('/manufacturing/boms');
       } catch (error) {
         console.error('Error deleting BOM:', error);
-        
+
         if (error.response && error.response.data && error.response.data.message) {
           alert(error.response.data.message);
         } else {
           alert('Failed to delete BOM. It might be in use or there was a server error.');
         }
-        
+
         showDeleteModal.value = false;
       }
     };
-    
+
     const confirmDeleteLine = (line) => {
       lineToDelete.value = line;
       showDeleteLineModal.value = true;
     };
-    
+
     const cancelDeleteLine = () => {
       lineToDelete.value = null;
       showDeleteLineModal.value = false;
     };
-    
+
     const deleteLine = async () => {
       if (!lineToDelete.value) return;
-      
+
       try {
         await axios.delete(`/boms/${bomId}/lines/${lineToDelete.value.line_id}`);
         await fetchBOMLines();
@@ -497,19 +497,19 @@ export default {
         cancelDeleteLine();
       }
     };
-    
+
     // Line form operations
     const editLine = (line) => {
       lineToEdit.value = { ...line };
       showEditLineModal.value = true;
     };
-    
+
     const cancelLineModal = () => {
       showAddLineModal.value = false;
       showEditLineModal.value = false;
       lineToEdit.value = {};
     };
-    
+
     const saveLineForm = async (formData) => {
       try {
         if (showEditLineModal.value) {
@@ -519,13 +519,13 @@ export default {
           // Add new line
           await axios.post(`/boms/${bomId}/lines`, formData);
         }
-        
+
         // Refresh BOM lines
         await fetchBOMLines();
         cancelLineModal();
       } catch (error) {
         console.error('Error saving BOM line:', error);
-        
+
         if (error.response && error.response.data && error.response.data.errors) {
           const errors = error.response.data.errors;
           const errorMessages = Object.values(errors).flat().join('\n');
@@ -535,11 +535,11 @@ export default {
         }
       }
     };
-    
+
     // Helper functions
     const getStatusBadgeClass = (status) => {
       if (!status) return 'badge-secondary';
-      
+
       const statusLower = status.toLowerCase();
       if (statusLower === 'draft') return 'badge-secondary';
       if (statusLower === 'active') return 'badge-success';
@@ -547,33 +547,33 @@ export default {
       if (statusLower === 'obsolete') return 'badge-danger';
       return 'badge-secondary';
     };
-    
+
     const formatDate = (dateString) => {
       if (!dateString) return 'N/A';
       const date = new Date(dateString);
       return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
     };
-    
+
     const formatNumber = (value) => {
       if (value === null || value === undefined) return 'N/A';
-      return parseFloat(value).toLocaleString(undefined, { 
+      return parseFloat(value).toLocaleString(undefined, {
         minimumFractionDigits: 0,
         maximumFractionDigits: 4
       });
     };
-    
+
     const formatPercentage = (value) => {
       if (value === null || value === undefined) return 'N/A';
-      return (value * 100).toLocaleString(undefined, { 
+      return (value * 100).toLocaleString(undefined, {
         minimumFractionDigits: 0,
         maximumFractionDigits: 2
       }) + '%';
     };
-    
+
     onMounted(() => {
       fetchBOM();
     });
-    
+
     return {
       bom,
       bomLines,
@@ -1149,47 +1149,47 @@ export default {
   .bom-detail-container {
     padding: 1rem;
   }
-  
+
   .d-flex.justify-content-between.align-items-center {
     flex-direction: column;
     align-items: flex-start;
   }
-  
+
   .action-buttons {
     margin-top: 1rem;
     width: 100%;
   }
-  
+
   .action-buttons .btn {
     flex: 1;
   }
-  
+
   .bom-details .col-md-6 {
     flex: 0 0 100%;
     max-width: 100%;
   }
-  
+
   .card-title {
     font-size: 1.25rem;
   }
-  
+
   .capacity-value {
     font-size: 2rem;
   }
-  
+
   .capacity-value .unit {
     font-size: 1rem;
   }
-  
+
   .detail-row {
     flex-direction: column;
   }
-  
+
   .detail-row label {
     width: 100%;
     margin-bottom: 0.35rem;
   }
-  
+
   .modal-content {
     width: 95%;
   }
@@ -1200,21 +1200,21 @@ export default {
   .card-header {
     padding: 1rem;
   }
-  
+
   .card-body {
     padding: 1rem;
   }
-  
+
   .action-group .btn {
     width: 2.5rem;
     height: 2.5rem;
   }
-  
+
   .table th,
   .table td {
     padding: 0.75rem 0.5rem;
   }
-  
+
   .modal-header,
   .modal-body,
   .modal-footer {
