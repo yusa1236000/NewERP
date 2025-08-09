@@ -119,7 +119,7 @@
 
               <!-- Models column -->
               <template #models="{ value }">
-                {{ value || '-' }}
+                {{ getModelDisplayName(value) || '-' }}
               </template>
 
               <!-- Run Time column -->
@@ -203,12 +203,13 @@
                       v-model="operationForm.operation_name"
                       type="text"
                       class="form-control"
+                      :class="{ 'is-invalid': operationErrors.operation_name }"
                       placeholder="Enter operation name"
                       required
                     />
-                    <small v-if="operationErrors.operation_name" class="error-message">
+                    <div v-if="operationErrors.operation_name" class="invalid-feedback">
                       {{ operationErrors.operation_name[0] }}
-                    </small>
+                    </div>
                   </div>
 
                   <div class="form-group col-md-6">
@@ -217,6 +218,7 @@
                       id="workcenter_id"
                       v-model="operationForm.workcenter_id"
                       class="form-control"
+                      :class="{ 'is-invalid': operationErrors.workcenter_id }"
                       required
                     >
                       <option value="" disabled>-- Select Work Center --</option>
@@ -228,9 +230,9 @@
                         {{ wc.name }} ({{ wc.code }})
                       </option>
                     </select>
-                    <small v-if="operationErrors.workcenter_id" class="error-message">
+                    <div v-if="operationErrors.workcenter_id" class="invalid-feedback">
                       {{ operationErrors.workcenter_id[0] }}
-                    </small>
+                    </div>
                   </div>
                 </div>
 
@@ -242,25 +244,50 @@
                       v-model="operationForm.work_flow"
                       type="text"
                       class="form-control"
+                      :class="{ 'is-invalid': operationErrors.work_flow }"
                       placeholder="Enter work flow"
                     />
-                    <small v-if="operationErrors.work_flow" class="error-message">
+                    <div v-if="operationErrors.work_flow" class="invalid-feedback">
                       {{ operationErrors.work_flow[0] }}
-                    </small>
+                    </div>
                   </div>
 
                   <div class="form-group col-md-6">
-                    <label for="models">Models</label>
-                    <input
+                    <label for="models">
+                      <i class="fas fa-cube mr-1"></i>
+                      Models
+                    </label>
+                    <select
                       id="models"
                       v-model="operationForm.models"
-                      type="text"
-                      class="form-control"
-                      placeholder="Enter models"
-                    />
-                    <small v-if="operationErrors.models" class="error-message">
-                      {{ operationErrors.models[0] }}
+                      class="form-control model-dropdown"
+                      :class="{
+                        'is-invalid': operationErrors.models,
+                        'loading': isLoadingModelItems
+                      }"
+                      :disabled="isLoadingModelItems"
+                    >
+                      <option value="">-- Select Model --</option>
+                      <option
+                        v-for="item in modelItems"
+                        :key="item.item_id"
+                        :value="item.item_code"
+                      >
+                        {{ item.item_code }} - {{ item.name }}
+                      </option>
+                    </select>
+                    <small v-if="isLoadingModelItems" class="help-text loading-text">
+                      <i class="fas fa-spinner fa-spin mr-1"></i> Loading models...
                     </small>
+                    <small v-else-if="modelItems.length === 0" class="help-text text-warning">
+                      <i class="fas fa-exclamation-triangle mr-1"></i> No models available
+                    </small>
+                    <small v-else class="help-text">
+                      <i class="fas fa-info-circle mr-1"></i> Select a model from available items (Category 9)
+                    </small>
+                    <div v-if="operationErrors.models" class="invalid-feedback">
+                      {{ operationErrors.models[0] }}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -317,66 +344,71 @@
               </div>
             </div>
 
-            <!-- Tambahkan setelah field models -->
-            <div class="form-row">
-                <div class="form-group col-md-4">
-                    <label for="dimensi">Dimension</label>
-                    <input
-                        id="dimensi"
-                        v-model="operationForm.dimensi"
-                        type="text"
-                        class="form-control"
-                        placeholder="Specification dimension"
-                        maxlength="100"
-                    />
-                    <small class="text-muted">Dimension specification for this operation</small>
-                    <small v-if="operationErrors.dimensi" class="error-message">
-                        {{ operationErrors.dimensi[0] }}
-                    </small>
+            <!-- Additional Fields Section -->
+            <div class="form-section">
+              <h3 class="section-title">
+                <i class="fas fa-ruler"></i>
+                Additional Specifications
+              </h3>
+
+              <div class="form-row">
+                <div class="form-group col-md-8">
+                  <label for="dimensi">
+                    <i class="fas fa-expand-arrows-alt mr-1"></i>
+                    Dimension
+                  </label>
+                  <input
+                    id="dimensi"
+                    v-model="operationForm.dimensi"
+                    type="text"
+                    class="form-control"
+                    :class="{ 'is-invalid': operationErrors.dimensi }"
+                    placeholder="Specification dimension"
+                    maxlength="100"
+                  />
+                  <small class="help-text">Dimension specification for this operation</small>
+                  <div v-if="operationErrors.dimensi" class="invalid-feedback">
+                    {{ operationErrors.dimensi[0] }}
+                  </div>
                 </div>
 
-                <!-- <div class="form-group col-md-4">
-                    <label for="toleransi">Toleransi</label>
-                    <input
-                        id="toleransi"
-                        v-model="operationForm.toleransi"
-                        type="text"
-                        class="form-control"
-                        placeholder="Tolerance specification"
-                        maxlength="100"
-                    />
-                    <small class="text-muted">Tolerance specification for this operation</small>
-                    <small v-if="operationErrors.toleransi" class="error-message">
-                        {{ operationErrors.toleransi[0] }}
-                    </small>
-                </div> -->
-
-                <!-- Yield 1 Field -->
-                  <div class="form-group col-md-3">
-                    <label for="yield1">Yield 1</label>
-                    <input
-                      id="yield1"
-                      v-model.number="operationForm.yield1"
-                      type="number"
-                      class="form-control"
-                      placeholder="Enter yield 1 value"
-                      step="0.0001"
-                      min="0"
-                    />
-                    <small class="text-muted">Yield value for this operation</small>
-                    <small v-if="operationErrors.yield1" class="error-message">
-                      {{ operationErrors.yield1[0] }}
-                    </small>
+                <div class="form-group col-md-4">
+                  <label for="yield1">
+                    <i class="fas fa-percentage mr-1"></i>
+                    Yield 1
+                  </label>
+                  <input
+                    id="yield1"
+                    v-model.number="operationForm.yield1"
+                    type="number"
+                    class="form-control"
+                    :class="{ 'is-invalid': operationErrors.yield1 }"
+                    placeholder="Enter yield value"
+                    step="0.0001"
+                    min="0"
+                    max="100"
+                  />
+                  <small class="help-text">Yield value for this operation (%)</small>
+                  <div v-if="operationErrors.yield1" class="invalid-feedback">
+                    {{ operationErrors.yield1[0] }}
                   </div>
+                </div>
+              </div>
             </div>
 
               <!-- Time & Sequence Section -->
               <div class="form-section">
-                <h3 class="section-title">Time & Sequence</h3>
+                <h3 class="section-title">
+                  <i class="fas fa-clock"></i>
+                  Time & Sequence
+                </h3>
 
                 <div class="form-row">
                   <div class="form-group col-md-3">
-                    <label for="sequence">Sequence <span class="required">*</span></label>
+                    <label for="sequence">
+                      <i class="fas fa-sort-numeric-up mr-1"></i>
+                      Sequence <span class="required">*</span>
+                    </label>
                     <input
                       id="sequence"
                       v-model.number="operationForm.sequence"
@@ -384,19 +416,24 @@
                       min="1"
                       step="10"
                       class="form-control"
+                      :class="{ 'is-invalid': operationErrors.sequence }"
                       required
                     />
-                    <small v-if="operationErrors.sequence" class="error-message">
+                    <div v-if="operationErrors.sequence" class="invalid-feedback">
                       {{ operationErrors.sequence[0] }}
-                    </small>
+                    </div>
                   </div>
 
                   <div class="form-group col-md-3">
-                    <label for="uom_id">Unit of Measure <span class="required">*</span></label>
+                    <label for="uom_id">
+                      <i class="fas fa-ruler-horizontal mr-1"></i>
+                      Unit of Measure <span class="required">*</span>
+                    </label>
                     <select
                       id="uom_id"
                       v-model="operationForm.uom_id"
                       class="form-control"
+                      :class="{ 'is-invalid': operationErrors.uom_id }"
                       required
                     >
                       <option value="" disabled>-- Select UOM --</option>
@@ -408,13 +445,16 @@
                         {{ uom.name }} ({{ uom.symbol }})
                       </option>
                     </select>
-                    <small v-if="operationErrors.uom_id" class="error-message">
+                    <div v-if="operationErrors.uom_id" class="invalid-feedback">
                       {{ operationErrors.uom_id[0] }}
-                    </small>
+                    </div>
                   </div>
 
                   <div class="form-group col-md-3">
-                    <label for="setup_time">Setup Time <span class="required">*</span></label>
+                    <label for="setup_time">
+                      <i class="fas fa-wrench mr-1"></i>
+                      Setup Time <span class="required">*</span>
+                    </label>
                     <input
                       id="setup_time"
                       v-model.number="operationForm.setup_time"
@@ -422,15 +462,19 @@
                       min="0"
                       step="0.1"
                       class="form-control"
+                      :class="{ 'is-invalid': operationErrors.setup_time }"
                       required
                     />
-                    <small v-if="operationErrors.setup_time" class="error-message">
+                    <div v-if="operationErrors.setup_time" class="invalid-feedback">
                       {{ operationErrors.setup_time[0] }}
-                    </small>
+                    </div>
                   </div>
 
                   <div class="form-group col-md-3">
-                    <label for="run_time">Process Time <span class="required">*</span></label>
+                    <label for="run_time">
+                      <i class="fas fa-play mr-1"></i>
+                      Process Time <span class="required">*</span>
+                    </label>
                     <input
                       id="run_time"
                       v-model.number="operationForm.run_time"
@@ -438,66 +482,48 @@
                       min="0"
                       step="0.000001"
                       class="form-control"
+                      :class="{ 'is-invalid': operationErrors.run_time }"
                       required
                     />
-                    <small v-if="operationErrors.run_time" class="error-message">
+                    <div v-if="operationErrors.run_time" class="invalid-feedback">
                       {{ operationErrors.run_time[0] }}
-                    </small>
+                    </div>
                   </div>
                 </div>
 
                 <div class="form-row">
                   <div class="form-group col-md-4">
-                    <label>Total Time (Calculated)</label>
+                    <label>
+                      <i class="fas fa-calculator mr-1"></i>
+                      Total Time (Calculated)
+                    </label>
                     <input
                       type="text"
                       class="form-control calculated-field"
-                      :value="totalOperationTime !== undefined && totalOperationTime !== null ? totalOperationTime.toFixed(1) : ''"
+                      :value="totalOperationTime !== undefined && totalOperationTime !== null ? totalOperationTime.toFixed(4) : '0.0000'"
                       readonly
                     />
-                    <small class="help-text">Setup Time + Process Time</small>
+                    <small class="help-text">
+                      <i class="fas fa-info-circle mr-1"></i>
+                      Setup Time + Process Time
+                    </small>
+                  </div>
+
+                  <div class="form-group col-md-4">
+                    <label>Selected Model Info</label>
+                    <div class="model-info-display">
+                      <span v-if="selectedModelInfo" class="badge badge-info">
+                        {{ selectedModelInfo.item_code }} - {{ selectedModelInfo.name }}
+                      </span>
+                      <span v-else class="text-muted">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        No model selected
+                      </span>
+                    </div>
+                    <small class="help-text">Currently selected model information</small>
                   </div>
                 </div>
               </div>
-
-              <!-- Cost Information Section -->
-              <!-- <div class="form-section">
-                <h3 class="section-title">Cost Information</h3>
-
-                <div class="form-row">
-                  <div class="form-group col-md-6">
-                    <label for="labor_cost">Labor Cost <span class="required">*</span></label>
-                    <input
-                      id="labor_cost"
-                      v-model.number="operationForm.labor_cost"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      class="form-control"
-                      required
-                    />
-                    <small v-if="operationErrors.labor_cost" class="error-message">
-                      {{ operationErrors.labor_cost[0] }}
-                    </small>
-                  </div>
-
-                  <div class="form-group col-md-6">
-                    <label for="overhead_cost">Overhead Cost <span class="required">*</span></label>
-                    <input
-                      id="overhead_cost"
-                      v-model.number="operationForm.overhead_cost"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      class="form-control"
-                      required
-                    />
-                    <small v-if="operationErrors.overhead_cost" class="error-message">
-                      {{ operationErrors.overhead_cost[0] }}
-                    </small>
-                  </div>
-                </div>
-              </div> -->
 
               <!-- Form Actions -->
               <div class="form-actions">
@@ -506,7 +532,7 @@
                   Cancel
                 </button>
                 <button type="submit" class="btn btn-primary" :disabled="isSavingOperation">
-                  <i class="fas fa-save mr-1"></i>
+                  <i class="fas fa-save mr-1" :class="{ 'fa-spin': isSavingOperation }"></i>
                   {{ isSavingOperation ? 'Saving...' : (selectedOperation ? 'Update Operation' : 'Save Operation') }}
                 </button>
               </div>
@@ -540,7 +566,7 @@
 </template>
 
 <script>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 
@@ -549,14 +575,16 @@ export default {
   setup() {
     const router = useRouter();
     const route = useRoute();
-    const routingId = computed(() => route.params.id);
+const routingId = computed(() => parseInt(route.params.id, 10));
 
     const isLoading = ref(true);
     const isLoadingOperations = ref(true);
+    const isLoadingModelItems = ref(false);
     const routing = ref({});
     const operations = ref([]);
     const workCenters = ref([]);
     const unitOfMeasures = ref([]);
+    const modelItems = ref([]);
     const defaultUomId = ref('');
 
     const selectedOperation = ref(null);
@@ -592,23 +620,27 @@ export default {
       return setup + run;
     });
 
+    // Computed property for selected model information
+    const selectedModelInfo = computed(() => {
+      if (!operationForm.models || !modelItems.value.length) return null;
+      return modelItems.value.find(item => item.item_code === operationForm.models);
+    });
+
     // Operation table columns
     const operationColumns = [
-      // { key: 'sequence', label: 'Sequence', sortable: true },
+      { key: 'sequence', label: 'Seq', sortable: true, width: '60px' },
       { key: 'operation_name', label: 'Operation Name', sortable: true },
       { key: 'work_center_name', label: 'Work Center' },
       { key: 'work_flow', label: 'Work Flow', sortable: true },
-      { key: 'dimensi', label: 'Dimension', sortable: true },
       { key: 'models', label: 'Models', sortable: true },
+      { key: 'dimensi', label: 'Dimension', sortable: true },
       { key: 'setup_time', label: 'Setup Time' },
       { key: 'run_time', label: 'Process Time' },
       { key: 'total_time', label: 'Total Time' },
-      { key: 'toleransi_min', label: 'Tolerance Min', sortable: true },
-      { key: 'toleransi_max', label: 'Tolerance Max', sortable: true },
-      { key: 'yield1', label: 'Yield 1', sortable: true },
-    //   { key: 'labor_cost', label: 'Labor Cost' },
-    //   { key: 'overhead_cost', label: 'Overhead Cost' },
-    //   { key: 'actions', label: 'Actions' },
+      { key: 'toleransi_min', label: 'Tol. Min', sortable: true },
+      { key: 'toleransi_max', label: 'Tol. Max', sortable: true },
+      { key: 'yield1', label: 'Yield %', sortable: true },
+      { key: 'actions', label: 'Actions', width: '100px' },
     ];
 
     // Sort operations by sequence
@@ -640,19 +672,38 @@ export default {
 
     // Get unit of measure name based on ID
     const getUnitName = (value, item) => {
-      if (!item || !item.unitOfMeasure) return '';
-      return item.unitOfMeasure.symbol || '';
+      if (!item || !item.unit_of_measure) return '';
+      return item.unit_of_measure.symbol || '';
+    };
+
+    // Get model display name from item_code for table display
+    const getModelDisplayName = (itemCode) => {
+      if (!itemCode) return '';
+      const modelItem = modelItems.value.find(item => item.item_code === itemCode);
+      return modelItem ? `${modelItem.item_code}` : itemCode;
     };
 
     // Load routing data
     const loadRouting = async () => {
+      if (isNaN(routingId.value)) {
+        console.error('Invalid routing ID:', route.params.id);
+        alert('Invalid routing ID. Please check the URL.');
+        router.push('/manufacturing/routings');
+        return;
+      }
+
       isLoading.value = true;
       try {
         const response = await axios.get(`/routings/${routingId.value}`);
         routing.value = response.data.data;
       } catch (error) {
         console.error('Error loading routing:', error);
-        alert('Failed to load routing data. Please try again.');
+        if (error.response?.status === 404) {
+          alert('Routing not found.');
+          router.push('/manufacturing/routings');
+        } else {
+          alert('Failed to load routing data. Please try again.');
+        }
       } finally {
         isLoading.value = false;
       }
@@ -660,6 +711,10 @@ export default {
 
     // Load operations
     const loadOperations = async () => {
+      if (isNaN(routingId.value)) {
+        return;
+      }
+
       isLoadingOperations.value = true;
       try {
         const response = await axios.get(`/routings/${routingId.value}/operations`);
@@ -672,6 +727,7 @@ export default {
         }));
       } catch (error) {
         console.error('Error loading operations:', error);
+        alert('Failed to load operations data. Please try again.');
       } finally {
         isLoadingOperations.value = false;
       }
@@ -702,6 +758,21 @@ export default {
       }
     };
 
+    // Load model items for dropdown
+    const loadModelItems = async () => {
+      isLoadingModelItems.value = true;
+      try {
+        const response = await axios.get('/routings/model-items');
+        modelItems.value = response.data.data || [];
+        console.log('Model items loaded:', modelItems.value.length);
+      } catch (error) {
+        console.error('Error loading model items:', error);
+        modelItems.value = [];
+      } finally {
+        isLoadingModelItems.value = false;
+      }
+    };
+
     // Edit operation
     const editOperation = (operation) => {
       selectedOperation.value = operation;
@@ -718,8 +789,8 @@ export default {
       operationForm.setup_time = operation.setup_time;
       operationForm.run_time = operation.run_time;
       operationForm.uom_id = operation.uom_id;
-      operationForm.labor_cost = operation.labor_cost;
-      operationForm.overhead_cost = operation.overhead_cost;
+      operationForm.labor_cost = operation.labor_cost || 0;
+      operationForm.overhead_cost = operation.overhead_cost || 0;
       operationForm.yield1 = operation.yield1 || 0;
 
       showOperationModal.value = true;
@@ -744,6 +815,7 @@ export default {
       operationForm.labor_cost = 0;
       operationForm.overhead_cost = 0;
       operationForm.yield1 = 0;
+      operationErrors.value = {};
     };
 
     // Cancel operation form
@@ -775,13 +847,17 @@ export default {
         await loadOperations(); // Reload operations
         showOperationModal.value = false;
         resetOperationForm();
+
+        // Show success message
+        alert(selectedOperation.value ? 'Operation updated successfully!' : 'Operation created successfully!');
       } catch (error) {
         console.error('Error saving operation:', error);
 
         if (error.response && error.response.data && error.response.data.errors) {
           operationErrors.value = error.response.data.errors;
         } else {
-          alert('Failed to save operation. Please try again.');
+          const message = error.response?.data?.message || 'Failed to save operation. Please try again.';
+          alert(message);
         }
       } finally {
         isSavingOperation.value = false;
@@ -825,6 +901,7 @@ export default {
         );
         await loadOperations(); // Reload operations
         showDeleteOperationModal.value = false;
+        alert('Operation deleted successfully!');
       } catch (error) {
         console.error('Error deleting operation:', error);
 
@@ -845,18 +922,33 @@ export default {
       showOperationModal.value = true;
     };
 
+    // Watch for modal closing to clear errors
+    watch(showOperationModal, (newValue) => {
+      if (!newValue) {
+        operationErrors.value = {};
+      }
+    });
+
     // Load data on component mount
-    onMounted(() => {
-      loadRouting();
-      loadOperations();
-      loadWorkCenters();
-      loadUnitOfMeasures();
+    onMounted(async () => {
+      try {
+        await Promise.all([
+          loadRouting(),
+          loadOperations(),
+          loadWorkCenters(),
+          loadUnitOfMeasures(),
+          loadModelItems()
+        ]);
+      } catch (error) {
+        console.error('Error loading initial data:', error);
+      }
     });
 
     return {
       routingId,
       isLoading,
       isLoadingOperations,
+      isLoadingModelItems,
       routing,
       operations,
       sortedOperations,
@@ -868,12 +960,15 @@ export default {
       isSavingOperation,
       workCenters,
       unitOfMeasures,
+      modelItems,
       showDeleteModal,
       showDeleteOperationModal,
       totalOperationTime,
+      selectedModelInfo,
       formatDate,
       formatCurrency,
       getUnitName,
+      getModelDisplayName,
       editOperation,
       cancelOperationForm,
       saveOperation,
@@ -890,7 +985,7 @@ export default {
 <style scoped>
 /* Container styling */
 .routing-detail-container {
-  max-width: 1100px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 1.5rem;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -956,6 +1051,11 @@ export default {
   box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
 }
 
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .btn-secondary {
   background-color: #f1f5f9;
   border-color: #cbd5e1;
@@ -977,6 +1077,17 @@ export default {
   background-color: #dc2626;
   border-color: #dc2626;
   box-shadow: 0 2px 4px rgba(220, 38, 38, 0.25);
+}
+
+.btn-info {
+  background-color: #0ea5e9;
+  border-color: #0ea5e9;
+  color: white;
+}
+
+.btn-info:hover {
+  background-color: #0284c7;
+  border-color: #0284c7;
 }
 
 .btn-sm {
@@ -1081,53 +1192,9 @@ export default {
   color: white;
 }
 
-/* Detail table styling */
-.detail-table {
-  width: 100%;
-  margin-bottom: 0;
-}
-
-.table {
-  width: 100%;
-  margin-bottom: 1rem;
-  border-collapse: collapse;
-}
-
-.table-borderless th,
-.table-borderless td {
-  border: none;
-}
-
-.detail-table th {
-  font-weight: 600;
-  color: #64748b;
-  padding: 0.75rem 0;
-  vertical-align: top;
-}
-
-.detail-table td {
-  color: #334155;
-  padding: 0.75rem 0;
-  vertical-align: top;
-}
-
-.col-md-6 {
-  flex: 0 0 50%;
-  max-width: 50%;
-  padding-right: 0.75rem;
-  padding-left: 0.75rem;
-}
-
-.col-md-3 {
-  flex: 0 0 25%;
-  max-width: 25%;
-  padding-right: 0.75rem;
-  padding-left: 0.75rem;
-}
-
-.col-md-4 {
-  flex: 0 0 33.333333%;
-  max-width: 33.333333%;
+.badge-info {
+  background-color: #3b82f6;
+  color: white;
 }
 
 /* Simple Grid Layout */
@@ -1168,13 +1235,20 @@ export default {
   border-top: 2px solid #e2e8f0;
 }
 
-.badge-info {
-  background-color: #3b82f6;
-  color: white;
-}
-
 .text-muted {
   color: #9ca3af;
+}
+
+.text-warning {
+  color: #f59e0b;
+}
+
+.text-danger {
+  color: #ef4444;
+}
+
+.text-success {
+  color: #22c55e;
 }
 
 /* Loading indicator */
@@ -1239,7 +1313,7 @@ export default {
   border-radius: 0.75rem;
   box-shadow: 0 10px 50px rgba(0, 0, 0, 0.2);
   width: 100%;
-  max-width: 900px;
+  max-width: 1000px;
   z-index: 1052;
   max-height: calc(100vh - 4rem);
   overflow: hidden;
@@ -1261,7 +1335,7 @@ export default {
 }
 
 .modal-lg {
-  max-width: 900px;
+  max-width: 1000px;
 }
 
 .modal-header {
@@ -1355,9 +1429,24 @@ export default {
   padding: 0 0.75rem;
 }
 
+.col-md-3 {
+  flex: 0 0 25%;
+  max-width: 25%;
+}
+
 .col-md-4 {
   flex: 0 0 33.333333%;
   max-width: 33.333333%;
+}
+
+.col-md-6 {
+  flex: 0 0 50%;
+  max-width: 50%;
+}
+
+.col-md-8 {
+  flex: 0 0 66.666667%;
+  max-width: 66.666667%;
 }
 
 /* Enhanced Form Controls */
@@ -1401,6 +1490,15 @@ label {
   border-color: #9ca3af;
 }
 
+.form-control.is-invalid {
+  border-color: #ef4444;
+}
+
+.form-control.is-invalid:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
 .calculated-field {
   background-color: #f9fafb;
   border-color: #d1d5db;
@@ -1411,6 +1509,40 @@ label {
 .calculated-field:focus {
   border-color: #d1d5db;
   box-shadow: none;
+}
+
+/* Model Dropdown Specific Styling */
+.model-dropdown {
+  background-color: #fff;
+  transition: all 0.2s ease;
+}
+
+.model-dropdown:disabled {
+  background-color: #f9fafb;
+  border-color: #e5e7eb;
+  color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.model-dropdown.loading {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23d1d5db' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+
+/* Model Info Display */
+.model-info-display {
+  padding: 0.75rem 1rem;
+  background-color: #f8fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 0.5rem;
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+}
+
+.model-info-display .badge {
+  font-size: 0.85rem;
+  padding: 0.5rem 1rem;
 }
 
 /* Select Styling */
@@ -1428,6 +1560,11 @@ select.form-control:focus {
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
 }
 
+select.form-control:disabled {
+  cursor: not-allowed;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23d1d5db' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+
 /* Helper Text & Error Messages */
 .help-text {
   display: block;
@@ -1437,12 +1574,31 @@ select.form-control:focus {
   font-style: italic;
 }
 
-.error-message {
+.help-text.loading-text {
+  color: #3b82f6;
+  font-weight: 500;
+}
+
+.invalid-feedback {
   display: block;
   margin-top: 0.35rem;
   font-size: 0.8rem;
   color: #ef4444;
   font-weight: 500;
+}
+
+/* Alert styling */
+.alert {
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+}
+
+.alert-info {
+  color: #0c4a6e;
+  background-color: #e0f2fe;
+  border-color: #bae6fd;
 }
 
 /* Enhanced Form Actions */
@@ -1567,7 +1723,8 @@ select.form-control:focus {
 
   .col-md-3,
   .col-md-4,
-  .col-md-6 {
+  .col-md-6,
+  .col-md-8 {
     flex: 0 0 100%;
     max-width: 100%;
   }

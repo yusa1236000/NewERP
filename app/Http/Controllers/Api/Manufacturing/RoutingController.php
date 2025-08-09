@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
 use App\Models\Manufacturing\Routing;
 use App\Models\Manufacturing\RoutingOperation;
+use App\Models\Item;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\QueryException;
 
@@ -97,28 +98,25 @@ class RoutingController extends Controller
                 'routing_code' => 'required|string|max:20|unique:routings,routing_code',
                 'revision' => 'required|string|max:10',
                 'effective_date' => 'required|date',
-                'status' => 'required|in:Active,Inactive',
+                'status' => 'required|in:Draft,Active,Obsolete',
                 'cavity' => 'nullable|integer|min:1',
                 'process' => 'nullable|string|max:255',
                 'set_jump' => 'nullable|numeric|min:0',
+                'yield' => 'nullable|numeric|min:0',
+                'yield_perikat' => 'nullable|numeric|min:0',
+                'tooling_code' => 'nullable|string|max:50',
                 'operations' => 'array',
                 'operations.*.workcenter_id' => 'required|integer|exists:work_centers,workcenter_id',
                 'operations.*.operation_name' => 'required|string|max:100',
                 'operations.*.work_flow' => 'nullable|string|max:100',
                 'operations.*.models' => 'nullable|string|max:100',
-                'operations.*.dimensi' => 'nullable|string|max:100',
-                'operations.*.toleransi_max' => 'nullable|string|max:100',
-                'operations.*.toleransi_min' => 'nullable|string|max:100',
                 'operations.*.sequence' => 'required|integer',
                 'operations.*.setup_time' => 'required|numeric',
                 'operations.*.run_time' => 'required|numeric',
                 'operations.*.uom_id' => 'required|integer|exists:unit_of_measures,uom_id',
                 'operations.*.labor_cost' => 'required|numeric',
                 'operations.*.overhead_cost' => 'required|numeric',
-                'operations.*.yield1' => 'nullable|numeric|min:0',
-                'yield' => 'nullable|numeric|min:0|max:100',
-                'yield_perikat' => 'nullable|numeric|min:0|max:100',
-                'tooling_code' => 'nullable|string|max:50',
+
             ]);
 
             if ($validator->fails()) {
@@ -152,8 +150,6 @@ class RoutingController extends Controller
                         'operation_name' => $operation['operation_name'],
                         'work_flow' => $operation['work_flow'] ?? null,
                         'models' => $operation['models'] ?? null,
-                        'dimensi' => $operation['dimensi'] ?? null,        // ✅ TAMBAH FIELD INI
-                        'toleransi' => $operation['toleransi'] ?? null,
                         // Field existing
                         'sequence' => $operation['sequence'],
                         'setup_time' => $operation['setup_time'],
@@ -213,10 +209,13 @@ class RoutingController extends Controller
                 'routing_code' => 'required|string|max:20|unique:routings,routing_code,' . $id . ',routing_id',
                 'revision' => 'required|string|max:10',
                 'effective_date' => 'required|date',
-                'status' => 'required|in:Active,Inactive',
+                'status' => 'required|in:Draft,Active,Obsolete',
                 'cavity' => 'nullable|integer|min:1',
                 'process' => 'nullable|string|max:255',
                 'set_jump' => 'nullable|numeric|min:0',
+                'yield' => 'nullable|numeric|min:0',
+                'yield_perikat' => 'nullable|numeric|min:0',
+                'tooling_code' => 'nullable|string|max:50',
                 'operations' => 'array',
                 'operations.*.workcenter_id' => 'required|integer|exists:work_centers,workcenter_id',
                 'operations.*.operation_name' => 'required|string|max:100',
@@ -225,6 +224,8 @@ class RoutingController extends Controller
                 'operations.*.dimensi' => 'nullable|string|max:100',
                 'operations.*.toleransi_max' => 'nullable|string|max:100',
                 'operations.*.toleransi_min' => 'nullable|string|max:100',
+                // 'operations.*.toleransi' => 'nullable|string|max:100',
+                'operations.*.yield1' => 'nullable|numeric|min:0',
                 // Field existing
                 'operations.*.sequence' => 'required|integer',
                 'operations.*.setup_time' => 'required|numeric',
@@ -232,9 +233,7 @@ class RoutingController extends Controller
                 'operations.*.uom_id' => 'required|integer|exists:unit_of_measures,uom_id',
                 'operations.*.labor_cost' => 'required|numeric',
                 'operations.*.overhead_cost' => 'required|numeric',
-                'yield' => 'nullable|numeric|min:0|max:100',
-                'yield_perikat' => 'nullable|numeric|min:0|max:100',
-                'tooling_code' => 'nullable|string|max:50',
+
             ]);
 
             if ($validator->fails()) {
@@ -386,9 +385,8 @@ class RoutingController extends Controller
                         'models' => $operation->models,
                         'toleransi_max' => $operation->toleransi_max,
                         'toleransi_min' => $operation->toleransi_min,
-                        'cavity' => $operation->cavity,
-                        'process' => $operation->process,
-                        'set_jump' => $operation->set_jump,
+                        // 'toleransi' => $operation->toleransi,
+                        // Field existing
                         'sequence' => $operation->sequence,
                         'setup_time' => $operation->setup_time,
                         'run_time' => $operation->run_time,
@@ -406,6 +404,26 @@ class RoutingController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Failed to fetch operations',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get items with category_id = 9 for models dropdown
+     */
+    public function getModelItems()
+    {
+        try {
+            $items = Item::where('category_id', 9)
+                ->select('item_id', 'item_code', 'name')
+                ->orderBy('item_code')
+                ->get();
+
+            return response()->json(['data' => $items]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to fetch model items',
                 'error' => $e->getMessage()
             ], 500);
         }

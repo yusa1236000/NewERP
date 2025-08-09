@@ -122,35 +122,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{id}/used-in-finished-goods', [ItemController::class, 'getUsedInFinishedGoods']);
     });
 
-    // // Item Routes
-    // Route::apiResource('items', ItemController::class);
-    // Route::get('/items/stock-status', [ItemController::class, 'stockStatus']);
-
-    // // Category Routes
-    // Route::apiResource('item-categories', CategoryController::class);
-
-    // // UOM Routes
-    // //Route::apiResource('unit-of-measures', UnitOfMeasureController::class);
-
-    // // Warehouse Routes
-    // Route::apiResource('warehouses', WarehouseController::class);
-    // Route::apiResource('warehouses.zones', WarehouseZoneController::class);
-    // Route::apiResource('warehouses.zones.locations', WarehouseLocationController::class);
-
-    // // Transaction Routes
-    // Route::apiResource('stock-transactions', StockTransactionController::class);
-
-    // // Adjustment Routes
-    // Route::apiResource('stock-adjustments', StockAdjustmentController::class);
-    // Route::patch('/stock-adjustments/{stock_adjustment}/approve', [StockAdjustmentController::class, 'approve']);
-    // Route::patch('/stock-adjustments/{stock_adjustment}/cancel', [StockAdjustmentController::class, 'cancel']);
-
-    // // Reports
-    // Route::get('/reports/stock', [ReportController::class, 'stockReport']);
-    // Route::get('/reports/movement', [ReportController::class, 'movementReport']);
-    // Route::get('/reports/adjustment', [ReportController::class, 'adjustmentReport']);
-    // Route::get('/reports/valuation', [ReportController::class, 'valuationReport']);
-
     // Item Category Routes
     Route::get('categories/tree', [ItemCategoryController::class, 'tree']);
     Route::resource('categories', ItemCategoryController::class);
@@ -565,9 +536,15 @@ Route::middleware('auth:sanctum')->group(function () {
     // Create a yield-based BOM
     Route::post('/yield-based', [BOMController::class, 'createYieldBased']);
 
-    // Routing
+    // ========== 🚨 FIXED: ROUTING ROUTES ORDER 🚨 ==========
+    // 🔴 BEFORE: Route spesifik harus didefinisikan SEBELUM resource route
+    // Route for model items - MOVED TO TOP PRIORITY
+    Route::get('routings/model-items', [RoutingController::class, 'getModelItems']);
+
+    // Routing resource routes - MOVED AFTER specific routes
     Route::apiResource('routings', RoutingController::class);
     Route::apiResource('routings/{routingId}/operations', RoutingOperationController::class);
+    // ========== 🚨 END OF FIXED SECTION 🚨 ==========
 
     // Work Centers
     Route::apiResource('work-centers', WorkCenterController::class);
@@ -684,11 +661,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('tax-codes', TaxCodeController::class);
         Route::get('tax-codes/scope/{scope}', [TaxCodeController::class, 'getByScope']);
         Route::post('tax-codes/calculate', [TaxCodeController::class, 'calculateTax']);
-        
+
         Route::apiResource('tax-categories', TaxCategoryController::class);
         Route::get('tax-categories/{id}/default-tax-codes', [TaxCategoryController::class, 'getDefaultTaxCodes']);
         Route::post('tax-categories/{id}/calculate', [TaxCategoryController::class, 'calculateCategoryTax']);
-        
+
         Route::get('tax-configuration', [TaxConfigurationController::class, 'index']);
         Route::post('tax-configuration', [TaxConfigurationController::class, 'store']);
         Route::put('tax-configuration/{id}', [TaxConfigurationController::class, 'update']);
