@@ -129,7 +129,7 @@
               </div>
               <div class="col-md-3">
                 <div class="form-group">
-                    <label for="yield_perikat">Yield PreeCut (%)</label>
+                    <label for="yield_perikat">Yield PreeCut (PCS)</label>
                     <input
                         id="yield_perikat"
                         v-model.number="routing.yield_perikat"
@@ -140,7 +140,6 @@
                         min="0"
                         max="100"
                     />
-                    <small class="text-muted">Yield perikat percentage (0-100%)</small>
                     <small v-if="errors.yield_perikat" class="text-danger">{{ errors.yield_perikat[0] }}</small>
                 </div>
             </div>
@@ -195,7 +194,7 @@
               </div>
               <div class="col-md-3">
               <div class="form-group">
-                <label for="yield">Yield (%)</label>
+                <label for="yield">Yield (PCS)</label>
                 <input
                   id="yield"
                   v-model.number="routing.yield"
@@ -206,7 +205,6 @@
                   min="0"
                   max="100"
                 />
-                <small class="text-muted">Production yield percentage (0-100%)</small>
                 <small v-if="errors.yield" class="text-danger">{{ errors.yield[0] }}</small>
               </div>
             </div>

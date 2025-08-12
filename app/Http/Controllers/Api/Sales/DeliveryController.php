@@ -48,6 +48,7 @@ class DeliveryController extends Controller
             $orderedQty = $line->quantity;
             $deliveredQty = DeliveryLine::join('Delivery', 'DeliveryLine.delivery_id', '=', 'Delivery.delivery_id')
                 ->where('DeliveryLine.so_line_id', $line->line_id)
+                ->whereIn('Delivery.status', ['Pending', 'In Transit', 'Completed']) // Tambahkan filter
                 ->sum('DeliveryLine.delivered_quantity');
 
             $outstandingQty = $orderedQty - $deliveredQty;
@@ -1034,6 +1035,388 @@ class DeliveryController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['message' => 'Failed to remove delivery line', 'error' => $e->getMessage()], 500);
+        }
+    }
+    /**
+     * Get outstanding sales orders by customer.
+     *
+     * @param  int  $customerId
+     * @return \Illuminate\Http\Response
+     */
+    public function getOutstandingSalesOrdersByCustomer($customerId)
+    {
+        $salesOrders = SalesOrder::where('customer_id', $customerId)
+            ->whereNotIn('status', ['Delivered', 'Closed', 'Cancelled'])
+            ->with('customer')
+            ->get();
+
+        $result = [];
+
+        foreach ($salesOrders as $order) {
+            $hasOutstanding = false;
+            $totalOutstandingQty = 0;
+
+            // Check if SO has outstanding items
+            foreach ($order->salesOrderLines as $line) {
+                $orderedQty = $line->quantity;
+                $deliveredQty = DeliveryLine::join('Delivery', 'DeliveryLine.delivery_id', '=', 'Delivery.delivery_id')
+                    ->where('DeliveryLine.so_line_id', $line->line_id)
+                    ->sum('DeliveryLine.delivered_quantity');
+
+                $outstandingQty = $orderedQty - $deliveredQty;
+
+                if ($outstandingQty > 0) {
+                    $hasOutstanding = true;
+                    $totalOutstandingQty += $outstandingQty;
+                }
+            }
+
+            if ($hasOutstanding) {
+                $result[] = [
+                    'so_id' => $order->so_id,
+                    'so_number' => $order->so_number,
+                    'so_date' => $order->so_date,
+                    'customer_id' => $order->customer_id,
+                    'customer_name' => $order->customer->name,
+                    'status' => $order->status,
+                    'outstanding_quantity' => $totalOutstandingQty
+                ];
+            }
+        }
+
+        return response()->json(['data' => $result], 200);
+    }
+
+    /**
+     * Create a single delivery order from multiple sales orders.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function createFromMultipleSO(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'delivery_number' => 'required|unique:Delivery,delivery_number',
+            'delivery_date' => 'required|date',
+            'customer_id' => 'required|exists:Customer,customer_id',
+            'shipping_method' => 'nullable|string|max:50',
+            'tracking_number' => 'nullable|string|max:50',
+            'items' => 'required|array|min:1',
+            'items.*.so_line_id' => 'required|exists:SOLine,line_id',
+            'items.*.delivered_quantity' => 'required|numeric|min:0.01',
+            'items.*.warehouse_id' => 'required|exists:warehouses,warehouse_id',
+            'items.*.batch_number' => 'nullable|string|max:50'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        // Get stock validation settings
+        $enforceStockValidation = SystemSetting::getValue('inventory_enforce_stock_validation', 'true') === 'true';
+        $allowNegativeStock = SystemSetting::getValue('inventory_allow_negative_stock', 'false') === 'true';
+
+        try {
+            DB::beginTransaction();
+
+            // Validate all items belong to SOs of the selected customer
+            $customerSOs = SalesOrder::where('customer_id', $request->customer_id)->pluck('so_id');
+
+            // Get the first SO ID for setting as primary SO
+            $primarySoId = null;
+
+            foreach ($request->items as $item) {
+                $soLine = SOLine::find($item['so_line_id']);
+                if (!$customerSOs->contains($soLine->so_id)) {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => 'Item does not belong to the selected customer\'s sales orders'
+                    ], 400);
+                }
+
+                // Set primary SO ID to first SO encountered
+                if ($primarySoId === null) {
+                    $primarySoId = $soLine->so_id;
+                }
+
+                // Calculate outstanding quantity
+                $previouslyDeliveredQty = DeliveryLine::join('Delivery', 'DeliveryLine.delivery_id', '=', 'Delivery.delivery_id')
+                    ->where('DeliveryLine.so_line_id', $item['so_line_id'])
+                    ->whereIn('Delivery.status', ['Pending', 'In Transit', 'Completed']) // Tambahkan filter
+                    ->sum('DeliveryLine.delivered_quantity');
+
+                $outstandingQty = $soLine->quantity - $previouslyDeliveredQty;
+
+                // Validate delivery quantity
+                if ($item['delivered_quantity'] > $outstandingQty) {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => 'Delivered quantity exceeds outstanding quantity for item ' .
+                            $soLine->item_id . ' (Outstanding: ' . $outstandingQty . ')'
+                    ], 400);
+                }
+
+                // Validate stock availability if enforcement is enabled
+                if ($enforceStockValidation) {
+                    $itemStock = ItemStock::where('item_id', $soLine->item_id)
+                        ->where('warehouse_id', $item['warehouse_id'])
+                        ->first();
+
+                    if (!$itemStock) {
+                        // Create itemStock entry if it doesn't exist
+                        $itemStock = ItemStock::create([
+                            'item_id' => $soLine->item_id,
+                            'warehouse_id' => $item['warehouse_id'],
+                            'quantity' => 0,
+                            'reserved_quantity' => 0
+                        ]);
+                    }
+
+                    // Check if negative stock is allowed
+                    if (!$allowNegativeStock && $itemStock->available_quantity < $item['delivered_quantity']) {
+                        DB::rollBack();
+                        return response()->json([
+                            'message' => 'Insufficient stock available in selected warehouse for item ' .
+                                $soLine->item_id . ' (Available: ' . $itemStock->available_quantity . ')'
+                        ], 400);
+                    }
+                }
+            }
+
+            // Create the delivery header with primary SO ID
+            $delivery = Delivery::create([
+                'delivery_number' => $request->delivery_number,
+                'delivery_date' => $request->delivery_date,
+                'so_id' => $primarySoId, // Set to primary SO instead of null
+                'customer_id' => $request->customer_id,
+                'status' => 'Pending',
+                'shipping_method' => $request->shipping_method,
+                'tracking_number' => $request->tracking_number
+            ]);
+
+            // Group items by SO for tracking purposes
+            $itemsBySO = [];
+            foreach ($request->items as $item) {
+                $soLine = SOLine::find($item['so_line_id']);
+                if (!isset($itemsBySO[$soLine->so_id])) {
+                    $itemsBySO[$soLine->so_id] = [];
+                }
+                $itemsBySO[$soLine->so_id][] = $item;
+            }
+
+            // Create delivery lines for all items
+            foreach ($request->items as $item) {
+                $soLine = SOLine::find($item['so_line_id']);
+
+                $deliveryLine = DeliveryLine::create([
+                    'delivery_id' => $delivery->delivery_id,
+                    'so_line_id' => $item['so_line_id'],
+                    'item_id' => $soLine->item_id,
+                    'delivered_quantity' => $item['delivered_quantity'],
+                    'warehouse_id' => $item['warehouse_id'],
+                    'batch_number' => $item['batch_number'] ?? null
+                ]);
+
+                // Create stock transaction for inventory tracking
+                if ($enforceStockValidation) {
+                    $itemStock = ItemStock::where('item_id', $soLine->item_id)
+                        ->where('warehouse_id', $item['warehouse_id'])
+                        ->first();
+
+                    if ($itemStock) {
+                        // Reserve stock for this delivery
+                        $itemStock->increment('reserved_quantity', $item['delivered_quantity']);
+                    }
+                }
+            }
+
+            // Update sales order statuses for all affected SOs
+            foreach (array_keys($itemsBySO) as $soId) {
+                $this->updateSalesOrderStatus($soId);
+            }
+
+            DB::commit();
+
+            // Load delivery with relationships for response
+            $delivery = Delivery::with(['customer', 'deliveryLines.item', 'deliveryLines.salesOrderLine.salesOrder'])
+                ->find($delivery->delivery_id);
+
+            return response()->json([
+                'message' => 'Multi-SO delivery created successfully',
+                'data' => $delivery
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error("Failed to create multi-SO delivery: " . $e->getMessage());
+            return response()->json([
+                'message' => 'Failed to create delivery',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get delivery summary with SO breakdown for multi-SO deliveries.
+     *
+     * @param  int  $deliveryId
+     * @return \Illuminate\Http\Response
+     */
+    public function getMultiSODeliverySummary($deliveryId)
+    {
+        $delivery = Delivery::with([
+            'customer',
+            'deliveryLines.item',
+            'deliveryLines.soLine.salesOrder'
+        ])->find($deliveryId);
+
+        if (!$delivery) {
+            return response()->json(['message' => 'Delivery not found'], 404);
+        }
+
+        // Group delivery lines by sales order
+        $soBreakdown = [];
+        $totalItems = 0;
+        $totalQuantity = 0;
+
+        foreach ($delivery->deliveryLines as $line) {
+            $soNumber = $line->soLine->salesOrder->so_number;
+
+            if (!isset($soBreakdown[$soNumber])) {
+                $soBreakdown[$soNumber] = [
+                    'so_number' => $soNumber,
+                    'so_id' => $line->soLine->so_id,
+                    'items' => [],
+                    'total_quantity' => 0,
+                    'item_count' => 0
+                ];
+            }
+
+            $soBreakdown[$soNumber]['items'][] = [
+                'item_code' => $line->item->item_code,
+                'item_name' => $line->item->name,
+                'delivered_quantity' => $line->delivered_quantity,
+                'warehouse_id' => $line->warehouse_id,
+                'batch_number' => $line->batch_number
+            ];
+
+            $soBreakdown[$soNumber]['total_quantity'] += $line->delivered_quantity;
+            $soBreakdown[$soNumber]['item_count']++;
+
+            $totalItems++;
+            $totalQuantity += $line->delivered_quantity;
+        }
+
+        return response()->json([
+            'data' => [
+                'delivery' => $delivery,
+                'so_breakdown' => array_values($soBreakdown),
+                'summary' => [
+                    'total_sos' => count($soBreakdown),
+                    'total_items' => $totalItems,
+                    'total_quantity' => $totalQuantity
+                ]
+            ]
+        ], 200);
+    }
+
+    /**
+     * Complete a multi-SO delivery and update stock.
+     *
+     * @param  int  $deliveryId
+     * @return \Illuminate\Http\Response
+     */
+    public function completeMultiSODelivery($deliveryId)
+    {
+        $delivery = Delivery::with('deliveryLines.soLine')->find($deliveryId);
+
+        if (!$delivery) {
+            return response()->json(['message' => 'Delivery not found'], 404);
+        }
+
+        if ($delivery->status === 'Completed') {
+            return response()->json(['message' => 'Delivery is already completed'], 400);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            // Get stock validation settings
+            $enforceStockValidation = SystemSetting::getValue('inventory_enforce_stock_validation', 'true') === 'true';
+            $allowNegativeStock = SystemSetting::getValue('inventory_allow_negative_stock', 'false') === 'true';
+
+            // Process each delivery line
+            foreach ($delivery->deliveryLines as $line) {
+                if ($enforceStockValidation) {
+                    $itemStock = ItemStock::where('item_id', $line->item_id)
+                        ->where('warehouse_id', $line->warehouse_id)
+                        ->first();
+
+                    if (!$itemStock) {
+                        $itemStock = ItemStock::create([
+                            'item_id' => $line->item_id,
+                            'warehouse_id' => $line->warehouse_id,
+                            'quantity' => 0,
+                            'reserved_quantity' => 0
+                        ]);
+                    }
+
+                    // Check stock availability if negative stock is not allowed
+                    if (!$allowNegativeStock && $itemStock->available_quantity < $line->delivered_quantity) {
+                        DB::rollBack();
+                        return response()->json([
+                            'message' => 'Insufficient stock for item ' .
+                                $line->item_id . ' in warehouse ' . $line->warehouse_id .
+                                ' (Available: ' . $itemStock->available_quantity . ')'
+                        ], 400);
+                    }
+
+                    // Create and confirm stock transaction
+                    $transaction = StockTransaction::create([
+                        'item_id' => $line->item_id,
+                        'warehouse_id' => $line->warehouse_id,
+                        'dest_warehouse_id' => null,
+                        'transaction_type' => StockTransaction::TYPE_ISSUE,
+                        'move_type' => StockTransaction::MOVE_TYPE_OUT,
+                        'quantity' => $line->delivered_quantity,
+                        'transaction_date' => now(),
+                        'reference_document' => 'delivery',
+                        'reference_number' => $delivery->delivery_number,
+                        'origin' => "Multi-SO Delivery Completion",
+                        'batch_id' => null,
+                        'state' => StockTransaction::STATE_DRAFT,
+                        'notes' => $allowNegativeStock ? 'Negative stock allowed' : null
+                    ]);
+
+                    // Auto-confirm to update stock
+                    $transaction->markAsDone();
+
+                    // Decrease reserved quantity if applicable
+                    if ($line->reservation_reference) {
+                        $itemStock->fresh()->decrement('reserved_quantity', $line->delivered_quantity);
+                    }
+                }
+            }
+
+            // Update delivery status
+            $delivery->status = 'Completed';
+            $delivery->save();
+
+            // Update all affected sales order statuses
+            $affectedSOs = $delivery->deliveryLines->pluck('soLine.so_id')->unique();
+            foreach ($affectedSOs as $soId) {
+                $this->updateSalesOrderStatus($soId);
+            }
+
+            DB::commit();
+
+            return response()->json(['message' => 'Multi-SO delivery completed successfully'], 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error("Failed to complete multi-SO delivery: " . $e->getMessage());
+            return response()->json([
+                'message' => 'Failed to complete delivery',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 }

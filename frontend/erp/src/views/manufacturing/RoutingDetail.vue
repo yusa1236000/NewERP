@@ -141,7 +141,7 @@
 
               <!-- Yield1 column -->
               <template #yield1="{ value }">
-                {{ value || '0' }}
+                {{ value !== null && value !== undefined ? value : '0' }}
               </template>
 
               <!-- Cost columns -->
@@ -254,7 +254,6 @@
 
                   <div class="form-group col-md-6">
                     <label for="models">
-                      <i class="fas fa-cube mr-1"></i>
                       Models
                     </label>
                     <select
@@ -282,9 +281,6 @@
                     <small v-else-if="modelItems.length === 0" class="help-text text-warning">
                       <i class="fas fa-exclamation-triangle mr-1"></i> No models available
                     </small>
-                    <small v-else class="help-text">
-                      <i class="fas fa-info-circle mr-1"></i> Select a model from available items (Category 9)
-                    </small>
                     <div v-if="operationErrors.models" class="invalid-feedback">
                       {{ operationErrors.models[0] }}
                     </div>
@@ -294,14 +290,12 @@
 
             <div class="form-section">
               <h3 class="section-title">
-                <i class="fas fa-ruler-combined"></i>
                 Tolerance Specification
               </h3>
 
               <div class="form-row">
                 <div class="form-group col-md-6">
                   <label for="toleransi_min">
-                    <i class="fas fa-arrow-down text-danger"></i>
                     Tolerance Min
                   </label>
                   <input
@@ -312,7 +306,6 @@
                     :class="{ 'is-invalid': operationErrors.toleransi_min }"
                     placeholder="Minimum tolerance value"
                   />
-                  <small class="help-text">Nilai tolerance minimum</small>
                   <div v-if="operationErrors.toleransi_min" class="invalid-feedback">
                     {{ operationErrors.toleransi_min[0] }}
                   </div>
@@ -320,7 +313,6 @@
 
                 <div class="form-group col-md-6">
                   <label for="toleransi_max">
-                    <i class="fas fa-arrow-up text-success"></i>
                     Tolerance Max
                   </label>
                   <input
@@ -331,7 +323,6 @@
                     :class="{ 'is-invalid': operationErrors.toleransi_max }"
                     placeholder="Maximum tolerance value"
                   />
-                  <small class="help-text">Nilai tolerance maximum</small>
                   <div v-if="operationErrors.toleransi_max" class="invalid-feedback">
                     {{ operationErrors.toleransi_max[0] }}
                   </div>
@@ -339,22 +330,19 @@
               </div>
 
               <div class="alert alert-info mt-2">
-                <i class="fas fa-lightbulb"></i>
-                <strong>Format contoh:</strong> ±0.1, +0.05/-0.02, 0.1-0.5
+                <strong>Sample Format:</strong> ±0.1, +0.05/-0.02, 0.1-0.5
               </div>
             </div>
 
             <!-- Additional Fields Section -->
             <div class="form-section">
               <h3 class="section-title">
-                <i class="fas fa-ruler"></i>
                 Additional Specifications
               </h3>
 
               <div class="form-row">
                 <div class="form-group col-md-8">
                   <label for="dimensi">
-                    <i class="fas fa-expand-arrows-alt mr-1"></i>
                     Dimension
                   </label>
                   <input
@@ -366,7 +354,6 @@
                     placeholder="Specification dimension"
                     maxlength="100"
                   />
-                  <small class="help-text">Dimension specification for this operation</small>
                   <div v-if="operationErrors.dimensi" class="invalid-feedback">
                     {{ operationErrors.dimensi[0] }}
                   </div>
@@ -374,7 +361,6 @@
 
                 <div class="form-group col-md-4">
                   <label for="yield1">
-                    <i class="fas fa-percentage mr-1"></i>
                     Yield 1
                   </label>
                   <input
@@ -388,7 +374,6 @@
                     min="0"
                     max="100"
                   />
-                  <small class="help-text">Yield value for this operation (%)</small>
                   <div v-if="operationErrors.yield1" class="invalid-feedback">
                     {{ operationErrors.yield1[0] }}
                   </div>
@@ -399,14 +384,12 @@
               <!-- Time & Sequence Section -->
               <div class="form-section">
                 <h3 class="section-title">
-                  <i class="fas fa-clock"></i>
                   Time & Sequence
                 </h3>
 
                 <div class="form-row">
                   <div class="form-group col-md-3">
                     <label for="sequence">
-                      <i class="fas fa-sort-numeric-up mr-1"></i>
                       Sequence <span class="required">*</span>
                     </label>
                     <input
@@ -426,7 +409,6 @@
 
                   <div class="form-group col-md-3">
                     <label for="uom_id">
-                      <i class="fas fa-ruler-horizontal mr-1"></i>
                       Unit of Measure <span class="required">*</span>
                     </label>
                     <select
@@ -452,8 +434,7 @@
 
                   <div class="form-group col-md-3">
                     <label for="setup_time">
-                      <i class="fas fa-wrench mr-1"></i>
-                      Setup Time <span class="required">*</span>
+                      Setup Time (Minutes) <span class="required">*</span>
                     </label>
                     <input
                       id="setup_time"
@@ -472,8 +453,7 @@
 
                   <div class="form-group col-md-3">
                     <label for="run_time">
-                      <i class="fas fa-play mr-1"></i>
-                      Process Time <span class="required">*</span>
+                      Process Time (Second) <span class="required">*</span>
                     </label>
                     <input
                       id="run_time"
@@ -494,7 +474,6 @@
                 <div class="form-row">
                   <div class="form-group col-md-4">
                     <label>
-                      <i class="fas fa-calculator mr-1"></i>
                       Total Time (Calculated)
                     </label>
                     <input
@@ -504,7 +483,6 @@
                       readonly
                     />
                     <small class="help-text">
-                      <i class="fas fa-info-circle mr-1"></i>
                       Setup Time + Process Time
                     </small>
                   </div>
@@ -639,7 +617,7 @@ const routingId = computed(() => parseInt(route.params.id, 10));
       { key: 'total_time', label: 'Total Time' },
       { key: 'toleransi_min', label: 'Tol. Min', sortable: true },
       { key: 'toleransi_max', label: 'Tol. Max', sortable: true },
-      { key: 'yield1', label: 'Yield %', sortable: true },
+      { key: 'yield1', label: 'Yield 1 (PCS)', sortable: true },
       { key: 'actions', label: 'Actions', width: '100px' },
     ];
 
@@ -814,7 +792,7 @@ const routingId = computed(() => parseInt(route.params.id, 10));
       operationForm.uom_id = defaultUomId.value;
       operationForm.labor_cost = 0;
       operationForm.overhead_cost = 0;
-      operationForm.yield1 = 0;
+      operationForm.yield1 = 0; // Ensure yield1 is initialized to 0
       operationErrors.value = {};
     };
 
@@ -830,17 +808,23 @@ const routingId = computed(() => parseInt(route.params.id, 10));
       operationErrors.value = {};
 
       try {
+        // Ensure yield1 is never null/undefined, default to 0
+        const formData = {
+          ...operationForm,
+          yield1: operationForm.yield1 !== null && operationForm.yield1 !== undefined ? operationForm.yield1 : 0
+        };
+
         if (selectedOperation.value) {
           // Update existing operation
           await axios.put(
             `/routings/${routingId.value}/operations/${selectedOperation.value.operation_id}`,
-            operationForm
+            formData
           );
         } else {
           // Create new operation
           await axios.post(
             `/routings/${routingId.value}/operations`,
-            operationForm
+            formData
           );
         }
 

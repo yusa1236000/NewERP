@@ -129,8 +129,7 @@
                   <th style="width: 22%">Material Name</th>
                   <th style="width: 25%">Description</th>
                   <th style="width: 10%">UOM</th>
-                  <th style="width: 10%">Planned Qty</th>
-                  <th style="width: 10%">Actual Qty</th>
+                  <th style="width: 10%">Qty</th>
                 </tr>
               </thead>
               <tbody>
@@ -144,7 +143,6 @@
                   </td>
                   <td>{{ material && material.uom || '' }}</td>
                   <td>{{ formatQuantity(material && material.plannedQty) }}</td>
-                  <td>{{ formatQuantity(material && material.actualQty) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -448,7 +446,7 @@ export default {
                    item.unit_of_measure?.symbol ||
                    item.uom?.symbol ||
                    item.uom ||
-                   'PCS',
+                   '-',
               plannedQty: consumption.planned_quantity || consumption.quantity || 0,
               actualQty: consumption.actual_quantity || consumption.used_quantity || 0,
               warehouseName: consumption.warehouse?.name ||

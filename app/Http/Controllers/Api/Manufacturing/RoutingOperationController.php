@@ -75,6 +75,7 @@ class RoutingOperationController extends Controller
             'dimensi' => 'nullable|string|max:100',
             'toleransi_max' => 'nullable|string|max:100',
             'toleransi_min' => 'nullable|string|max:100',
+            'yield1' => 'nullable|numeric|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -104,6 +105,7 @@ class RoutingOperationController extends Controller
         $operation->uom_id = $request->uom_id;
         $operation->labor_cost = $request->labor_cost;
         $operation->overhead_cost = $request->overhead_cost;
+        $operation->yield1 = $request->yield1;
 
         Log::info('RoutingOperationController::store - About to save operation', [
             'operation_data' => $operation->toArray()
@@ -195,6 +197,7 @@ class RoutingOperationController extends Controller
             'dimensi' => 'nullable|string|max:100',
             'toleransi_max' => 'nullable|string|max:100',
             'toleransi_min' => 'nullable|string|max:100',
+            'yield1' => 'nullable|numeric|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -214,6 +217,7 @@ class RoutingOperationController extends Controller
         $operation->uom_id = $request->uom_id;
         $operation->labor_cost = $request->labor_cost;
         $operation->overhead_cost = $request->overhead_cost;
+        $operation->yield1 = $request->yield1;
         $operation->save();
 
         return response()->json([

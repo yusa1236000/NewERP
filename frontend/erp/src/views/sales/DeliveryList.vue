@@ -419,7 +419,7 @@
       };
 
       const createFromOutstanding = () => {
-        router.push('/sales/deliveries/outstanding');
+        router.push('/sales/deliveries/create-multi-so');
       };
 
       const viewDelivery = (delivery) => {

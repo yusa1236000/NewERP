@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Manufacturing;
 use App\Http\Controllers\Controller;
 use App\Models\Manufacturing\WorkOrder;
 use App\Models\Manufacturing\WorkOrderOperation;
+use App\Models\Manufacturing\JobTicket; // TAMBAHAN: Import JobTicket model
 use App\Models\ItemPrice;
 use App\Models\Sales\Customer;
 use Illuminate\Http\Request;
@@ -118,13 +119,86 @@ class WorkOrderController extends Controller
     }
 
     /**
+     * TAMBAHAN: Get total actual quantity from JobTickets based on wo_id
+     *
+     * @param  int  $woId
+     * @return float
+     */
+    private function getTotalActualQuantityFromJobTickets($woId)
+    {
+        // Query untuk mendapatkan total qty_completed dari JobTicket
+        // yang terkait dengan production_orders yang memiliki wo_id yang sama
+        $totalActualQuantity = DB::table('job_tickets')
+            ->join('production_orders', 'job_tickets.production_id', '=', 'production_orders.production_id')
+            ->where('production_orders.wo_id', $woId)
+            ->sum('job_tickets.qty_completed');
+
+        return (float) ($totalActualQuantity ?? 0);
+    }
+
+    /**
+     * TAMBAHAN: Get production orders with their actual quantities from JobTickets
+     *
+     * @param  int  $woId
+     * @return array
+     */
+    private function getProductionOrdersActualQuantities($woId)
+    {
+        $productionOrders = DB::table('production_orders')
+            ->leftJoin('job_tickets', 'production_orders.production_id', '=', 'job_tickets.production_id')
+            ->where('production_orders.wo_id', $woId)
+            ->select(
+                'production_orders.production_id',
+                'production_orders.production_number',
+                'production_orders.planned_quantity',
+                'production_orders.actual_quantity as production_actual_quantity',
+                'production_orders.production_date',
+                'production_orders.status',
+                DB::raw('COALESCE(SUM(job_tickets.qty_completed), 0) as actual_quantity_from_jop'),
+                DB::raw('COUNT(job_tickets.ticket_id) as job_ticket_count')
+            )
+            ->groupBy(
+                'production_orders.production_id',
+                'production_orders.production_number',
+                'production_orders.planned_quantity',
+                'production_orders.actual_quantity',
+                'production_orders.production_date',
+                'production_orders.status'
+            )
+            ->get()
+            ->map(function ($item) {
+                $actualFromJop = (float) $item->actual_quantity_from_jop;
+                $plannedQty = (float) $item->planned_quantity;
+                $productionActual = (float) ($item->production_actual_quantity ?? 0);
+
+                return [
+                    'production_id' => $item->production_id,
+                    'production_number' => $item->production_number,
+                    'planned_quantity' => $plannedQty,
+                    'production_order_actual_quantity' => $productionActual,
+                    'actual_quantity_from_jop' => $actualFromJop,
+                    'job_ticket_count' => (int) $item->job_ticket_count,
+                    'production_date' => $item->production_date,
+                    'status' => $item->status,
+                    'variance_from_planned' => $actualFromJop - $plannedQty,
+                    'variance_from_production' => $actualFromJop - $productionActual
+                ];
+            })
+            ->toArray();
+
+        return $productionOrders;
+    }
+
+    /**
      * Transform work order data to include customer information
+     * DIUPDATE: Menambahkan actual quantity dari JobTickets
      *
      * @param  \App\Models\Manufacturing\WorkOrder  $workOrder
      * @param  bool  $includeAllCustomers
+     * @param  bool  $includeActualQuantity
      * @return array
      */
-    private function transformWorkOrderData($workOrder, $includeAllCustomers = false)
+    private function transformWorkOrderData($workOrder, $includeAllCustomers = false, $includeActualQuantity = false)
     {
         $data = $workOrder->toArray();
 
@@ -139,7 +213,46 @@ class WorkOrderController extends Controller
             $data['all_customers'] = $this->getAllCustomersFromItemPrices($workOrder->item_id);
         }
 
+        // TAMBAHAN: Include actual quantity jika diminta
+        if ($includeActualQuantity) {
+            $data['actual_quantity'] = $this->getTotalActualQuantityFromJobTickets($workOrder->wo_id);
+            $data['production_orders_actual'] = $this->getProductionOrdersActualQuantities($workOrder->wo_id);
+
+            // Tambahan informasi summary
+            $plannedQuantity = (float) $workOrder->planned_quantity;
+            $actualQuantity = $data['actual_quantity'];
+
+            $data['actual_quantity_summary'] = [
+                'work_order_planned_quantity' => $plannedQuantity,
+                'total_actual_from_jop' => $actualQuantity,
+                'overall_variance' => $actualQuantity - $plannedQuantity,
+                'completion_percentage' => $plannedQuantity > 0 ? round(($actualQuantity / $plannedQuantity) * 100, 2) : 0,
+                'efficiency_status' => $this->getEfficiencyStatus($actualQuantity, $plannedQuantity)
+            ];
+        }
+
         return $data;
+    }
+
+    /**
+     * TAMBAHAN: Get efficiency status based on actual vs planned quantity
+     *
+     * @param  float  $actualQuantity
+     * @param  float  $plannedQuantity
+     * @return string
+     */
+    private function getEfficiencyStatus($actualQuantity, $plannedQuantity)
+    {
+        if ($plannedQuantity <= 0) return 'unknown';
+
+        $percentage = ($actualQuantity / $plannedQuantity) * 100;
+
+        if ($percentage >= 100) return 'completed';
+        if ($percentage >= 90) return 'near_completion';
+        if ($percentage >= 50) return 'in_progress';
+        if ($percentage > 0) return 'started';
+
+        return 'not_started';
     }
 
     /**
@@ -190,7 +303,10 @@ class WorkOrderController extends Controller
         // Transform each work order to include customer information
         $transformedWorkOrders = $workOrders->map(function ($workOrder) use ($request) {
             $includeAllCustomers = $request->has('include_all_customers') && $request->include_all_customers;
-            return $this->transformWorkOrderData($workOrder, $includeAllCustomers);
+            // TAMBAHAN: Include actual quantity untuk list jika diminta (optional untuk performance)
+            $includeActualQuantity = $request->has('include_actual_quantity') && $request->include_actual_quantity;
+
+            return $this->transformWorkOrderData($workOrder, $includeAllCustomers, $includeActualQuantity);
         });
 
         return response()->json(['data' => $transformedWorkOrders]);
@@ -262,6 +378,7 @@ class WorkOrderController extends Controller
 
     /**
      * Display the specified resource.
+     * DIUPDATE: Menambahkan actual quantity dari JobTickets
      *
      * @param  int  $id
      * @return \Illuminate\Http\Response
@@ -280,7 +397,7 @@ class WorkOrderController extends Controller
         }
 
         return response()->json([
-            'data' => $this->transformWorkOrderData($workOrder, true)
+            'data' => $this->transformWorkOrderData($workOrder, true, true) // TAMBAHAN: parameter ketiga true untuk include actual quantity
         ]);
     }
 
@@ -432,6 +549,54 @@ class WorkOrderController extends Controller
         return response()->json([
             'data' => $transformedWorkOrders,
             'message' => 'Work orders for customer retrieved successfully'
+        ]);
+    }
+
+    /**
+     * TAMBAHAN: Get work order actual quantity report
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function getActualQuantityReport($id)
+    {
+        $workOrder = WorkOrder::with(['item'])->find($id);
+
+        if (!$workOrder) {
+            return response()->json(['message' => 'Work order not found'], 404);
+        }
+
+        $totalActualQuantity = $this->getTotalActualQuantityFromJobTickets($id);
+        $productionOrders = $this->getProductionOrdersActualQuantities($id);
+
+        // Get detailed job tickets
+        $jobTickets = DB::table('job_tickets')
+            ->join('production_orders', 'job_tickets.production_id', '=', 'production_orders.production_id')
+            ->where('production_orders.wo_id', $id)
+            ->select(
+                'job_tickets.*',
+                'production_orders.production_number',
+                'production_orders.production_date'
+            )
+            ->orderBy('job_tickets.date', 'desc')
+            ->get();
+
+        return response()->json([
+            'data' => [
+                'work_order' => [
+                    'wo_id' => $workOrder->wo_id,
+                    'wo_number' => $workOrder->wo_number,
+                    'planned_quantity' => $workOrder->planned_quantity,
+                    'item' => $workOrder->item ? [
+                        'item_code' => $workOrder->item->item_code,
+                        'name' => $workOrder->item->name
+                    ] : null,
+                ],
+                'total_actual_quantity' => $totalActualQuantity,
+                'production_orders' => $productionOrders,
+                'job_tickets' => $jobTickets
+            ],
+            'message' => 'Work order actual quantity report retrieved successfully'
         ]);
     }
 }

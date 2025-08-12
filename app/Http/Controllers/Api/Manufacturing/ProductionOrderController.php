@@ -31,7 +31,7 @@ class ProductionOrderController extends Controller
      */
     public function index(Request $request)
     {
-        $query = ProductionOrder::with(['workOrder.item']);
+        $query = ProductionOrder::with(['workOrder.item.unitOfMeasure']); // UPDATED: Added UOM data
 
         if ($request->has('wo_id')) {
             $query->where('wo_id', $request->wo_id);
@@ -145,7 +145,10 @@ class ProductionOrderController extends Controller
             DB::commit();
 
             return response()->json([
-                'data' => $productionOrder->load(['workOrder', 'productionConsumptions.item']),
+                'data' => $productionOrder->load([
+                    'workOrder.item.unitOfMeasure',
+                    'productionConsumptions.item.unitOfMeasure' // UPDATED: Added UOM data
+                ]),
                 'message' => 'Production order created successfully'
             ], 201);
         } catch (\Exception $e) {
@@ -198,6 +201,7 @@ class ProductionOrderController extends Controller
 
     /**
      * Display the specified resource.
+     * UPDATED: Added UOM name support for production consumption
      *
      * @param  int  $id
      * @return \Illuminate\Http\Response
@@ -205,8 +209,8 @@ class ProductionOrderController extends Controller
     public function show($id)
     {
         $productionOrder = ProductionOrder::with([
-            'workOrder.item',
-            'productionConsumptions.item',
+            'workOrder.item.unitOfMeasure',                    // UOM untuk item utama production order
+            'productionConsumptions.item.unitOfMeasure',       // ⭐ TAMBAHKAN: UOM untuk setiap consumption item
             'productionConsumptions.warehouse',
             'jobTickets' // ADDED: Include job tickets
         ])->find($id);
@@ -215,7 +219,42 @@ class ProductionOrderController extends Controller
             return response()->json(['message' => 'Production order not found'], 404);
         }
 
-        return response()->json(['data' => $productionOrder]);
+        // Convert to array untuk manipulasi data
+        $data = $productionOrder->toArray();
+
+        // ✅ 1. Tambahkan uom_name ke production order (item utama)
+        if (
+            $productionOrder->workOrder &&
+            $productionOrder->workOrder->item &&
+            $productionOrder->workOrder->item->unitOfMeasure
+        ) {
+            $data['uom_name'] = $productionOrder->workOrder->item->unitOfMeasure->name;
+            $data['uom_symbol'] = $productionOrder->workOrder->item->unitOfMeasure->symbol;
+        } else {
+            $data['uom_name'] = null;
+            $data['uom_symbol'] = null;
+        }
+
+        // ⭐ 2. TAMBAHKAN: uom_name ke setiap production consumption
+        if (isset($data['production_consumptions']) && is_array($data['production_consumptions'])) {
+            foreach ($data['production_consumptions'] as $key => $consumption) {
+                // Cek apakah ada UOM data di item consumption
+                if (
+                    isset($consumption['item']['unit_of_measure']) &&
+                    !empty($consumption['item']['unit_of_measure'])
+                ) {
+                    // Tambahkan uom_name dan uom_symbol ke consumption
+                    $data['production_consumptions'][$key]['uom_name'] = $consumption['item']['unit_of_measure']['name'];
+                    $data['production_consumptions'][$key]['uom_symbol'] = $consumption['item']['unit_of_measure']['symbol'];
+                } else {
+                    // Default values jika UOM tidak ada
+                    $data['production_consumptions'][$key]['uom_name'] = null;
+                    $data['production_consumptions'][$key]['uom_symbol'] = null;
+                }
+            }
+        }
+
+        return response()->json(['data' => $data]);
     }
 
     /**
@@ -266,7 +305,10 @@ class ProductionOrderController extends Controller
             DB::commit();
 
             return response()->json([
-                'data' => $productionOrder->load(['workOrder', 'productionConsumptions.item']),
+                'data' => $productionOrder->load([
+                    'workOrder.item.unitOfMeasure',
+                    'productionConsumptions.item.unitOfMeasure' // UPDATED: Added UOM data
+                ]),
                 'message' => 'Production order updated successfully'
             ]);
         } catch (\Exception $e) {
@@ -318,6 +360,7 @@ class ProductionOrderController extends Controller
 
     /**
      * Issue materials for production (Step 1: Material consumption)
+     * UPDATED: Added UOM data loading
      *
      * @param  \Illuminate\Http\Request  $request
      * @param  int  $id
@@ -325,8 +368,10 @@ class ProductionOrderController extends Controller
      */
     public function issueMaterials(Request $request, $id)
     {
-        $productionOrder = ProductionOrder::with(['workOrder.item', 'productionConsumptions.item'])
-            ->find($id);
+        $productionOrder = ProductionOrder::with([
+            'workOrder.item.unitOfMeasure',                    // ⭐ UOM untuk item utama
+            'productionConsumptions.item.unitOfMeasure'        // ⭐ UOM untuk consumption items
+        ])->find($id);
 
         if (!$productionOrder) {
             return response()->json(['message' => 'Production order not found'], 404);
@@ -459,7 +504,11 @@ class ProductionOrderController extends Controller
 
             return response()->json([
                 'message' => 'Materials issued and product allocated to WIP successfully.',
-                'data' => $productionOrder->fresh(['workOrder', 'productionConsumptions.item']),
+                'data' => $productionOrder->fresh([
+                    'workOrder.item.unitOfMeasure',
+                    'productionConsumptions.item.unitOfMeasure',
+                    'productionConsumptions.warehouse'
+                ]),
                 'transactions' => [
                     'material_transactions_count' => count($consumptionsMap),
                     'product_allocation_transaction_id' => $productAllocationTransaction->transaction_id,
@@ -520,7 +569,10 @@ class ProductionOrderController extends Controller
 
             return response()->json([
                 'message' => 'Production started successfully',
-                'data' => $productionOrder->fresh(['workOrder', 'productionConsumptions.item'])
+                'data' => $productionOrder->fresh([
+                    'workOrder.item.unitOfMeasure',
+                    'productionConsumptions.item.unitOfMeasure'
+                ])
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -533,7 +585,7 @@ class ProductionOrderController extends Controller
 
     /**
      * Complete production (Step 3: Receive finished goods) - UPDATED WITH JOB TICKET AUTO-TRANSFER
-     * INCLUDING FGRN_NO AND DATE FIELDS
+     * INCLUDING FGRN_NO AND DATE FIELDS + UOM DATA LOADING
      *
      * @param  \Illuminate\Http\Request  $request
      * @param  int  $id
@@ -541,8 +593,10 @@ class ProductionOrderController extends Controller
      */
     public function complete(Request $request, $id)
     {
-        $productionOrder = ProductionOrder::with(['workOrder.item', 'productionConsumptions.item'])
-            ->find($id);
+        $productionOrder = ProductionOrder::with([
+            'workOrder.item.unitOfMeasure',                    // ⭐ UOM untuk item utama
+            'productionConsumptions.item.unitOfMeasure'        // ⭐ UOM untuk consumption items
+        ])->find($id);
 
         if (!$productionOrder) {
             return response()->json(['message' => 'Production order not found'], 404);
@@ -702,7 +756,12 @@ class ProductionOrderController extends Controller
 
             $responseData = [
                 'message' => 'Production completed successfully and job ticket created. Materials consumed and finished goods moved to Finished Goods warehouse.',
-                'data' => $productionOrder->fresh(['workOrder', 'productionConsumptions.item', 'jobTickets']),
+                'data' => $productionOrder->fresh([
+                    'workOrder.item.unitOfMeasure',
+                    'productionConsumptions.item.unitOfMeasure',
+                    'productionConsumptions.warehouse',
+                    'jobTickets'
+                ]),
                 'completion_summary' => [
                     'planned_quantity' => $plannedQuantity,
                     'actual_quantity' => $actualQuantity,
@@ -739,7 +798,7 @@ class ProductionOrderController extends Controller
 
     /**
      * UPDATED: Create job ticket entry when production is completed
-     * Auto-transfer to job_ticket table with FGRN_NO and DATE fields
+     * Auto-transfer to job_ticket table with FGRN_NO and DATE fields + UOM DATA
      *
      * @param ProductionOrder $productionOrder
      * @param float $actualQuantity
@@ -775,10 +834,10 @@ class ProductionOrderController extends Controller
         // Use job ticket date if provided, otherwise use completion date
         $ticketDate = $jobTicketDate ?? $completionDate;
 
-        // Get UOM from item relationship
+        // Get UOM from item relationship - UPDATED WITH UOM NAME
         $uom = 'PCS'; // Default UOM
-        if ($item && $item->uom) {
-            $uom = $item->uom->name;
+        if ($item && $item->unitOfMeasure) {
+            $uom = $item->unitOfMeasure->name; // ⭐ GUNAKAN NAME BUKAN SYMBOL
         }
 
         JobTicket::create([
@@ -961,7 +1020,10 @@ class ProductionOrderController extends Controller
 
             return response()->json([
                 'message' => $this->getStatusChangeMessage($currentStatus, $newStatus),
-                'data' => $productionOrder->fresh(['workOrder', 'productionConsumptions.item'])
+                'data' => $productionOrder->fresh([
+                    'workOrder.item.unitOfMeasure',
+                    'productionConsumptions.item.unitOfMeasure'
+                ])
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -1018,6 +1080,7 @@ class ProductionOrderController extends Controller
 
     /**
      * Get material status for production order
+     * UPDATED: Added UOM name support
      *
      * @param int $id
      * @return \Illuminate\Http\Response
@@ -1025,7 +1088,7 @@ class ProductionOrderController extends Controller
     public function getMaterialStatus($id)
     {
         $productionOrder = ProductionOrder::with([
-            'productionConsumptions.item',
+            'productionConsumptions.item.unitOfMeasure',       // ⭐ TAMBAHKAN: UOM data
             'productionConsumptions.warehouse'
         ])->find($id);
 
@@ -1059,6 +1122,14 @@ class ProductionOrderController extends Controller
             $totalPlannedValue += $plannedValue;
             $totalActualValue += $actualValue;
 
+            // ⭐ TAMBAHKAN: UOM data ke material status
+            $uomName = null;
+            $uomSymbol = null;
+            if ($consumption->item && $consumption->item->unitOfMeasure) {
+                $uomName = $consumption->item->unitOfMeasure->name;
+                $uomSymbol = $consumption->item->unitOfMeasure->symbol;
+            }
+
             $materialStatus[] = [
                 'consumption_id' => $consumption->consumption_id,
                 'item_id' => $consumption->item_id,
@@ -1074,6 +1145,8 @@ class ProductionOrderController extends Controller
                 'planned_value' => $plannedValue,
                 'actual_value' => $actualValue,
                 'warehouse_name' => $consumption->warehouse->name ?? 'Unknown',
+                'uom_name' => $uomName,        // ⭐ TAMBAHKAN
+                'uom_symbol' => $uomSymbol,    // ⭐ TAMBAHKAN
                 'status' => $consumption->actual_quantity > 0 ? 'Issued' : 'Pending'
             ];
         }
@@ -1093,6 +1166,7 @@ class ProductionOrderController extends Controller
 
     /**
      * Get production summary
+     * UPDATED: Added UOM name support
      *
      * @param int $id
      * @return \Illuminate\Http\Response
@@ -1100,8 +1174,8 @@ class ProductionOrderController extends Controller
     public function getProductionSummary($id)
     {
         $productionOrder = ProductionOrder::with([
-            'workOrder.item',
-            'productionConsumptions.item'
+            'workOrder.item.unitOfMeasure',                    // ⭐ UOM untuk item utama
+            'productionConsumptions.item.unitOfMeasure'        // ⭐ UOM untuk consumption items
         ])->find($id);
 
         if (!$productionOrder) {
@@ -1148,6 +1222,18 @@ class ProductionOrderController extends Controller
             $timeline['production_started'] = $timeline['materials_issued'];
         }
 
+        // ⭐ TAMBAHKAN: UOM data ke production order info
+        $productUomName = null;
+        $productUomSymbol = null;
+        if (
+            $productionOrder->workOrder &&
+            $productionOrder->workOrder->item &&
+            $productionOrder->workOrder->item->unitOfMeasure
+        ) {
+            $productUomName = $productionOrder->workOrder->item->unitOfMeasure->name;
+            $productUomSymbol = $productionOrder->workOrder->item->unitOfMeasure->symbol;
+        }
+
         return response()->json([
             'data' => [
                 'production_order' => [
@@ -1157,6 +1243,8 @@ class ProductionOrderController extends Controller
                     'work_order_number' => $productionOrder->workOrder->wo_number,
                     'product_name' => $productionOrder->workOrder->item->name,
                     'product_code' => $productionOrder->workOrder->item->item_code,
+                    'product_uom_name' => $productUomName,      // ⭐ TAMBAHKAN
+                    'product_uom_symbol' => $productUomSymbol,  // ⭐ TAMBAHKAN
                 ],
                 'quantities' => [
                     'planned' => $plannedQuantity,
@@ -1172,14 +1260,25 @@ class ProductionOrderController extends Controller
                 ],
                 'timeline' => $timeline,
                 'material_summary' => $productionOrder->productionConsumptions->map(function ($consumption) {
+                    // ⭐ TAMBAHKAN: UOM data ke material summary
+                    $uomName = null;
+                    $uomSymbol = null;
+                    if ($consumption->item && $consumption->item->unitOfMeasure) {
+                        $uomName = $consumption->item->unitOfMeasure->name;
+                        $uomSymbol = $consumption->item->unitOfMeasure->symbol;
+                    }
+
                     return [
                         'item_name' => $consumption->item->name,
+                        'item_code' => $consumption->item->item_code,
                         'planned' => $consumption->planned_quantity,
                         'actual' => $consumption->actual_quantity,
                         'variance' => $consumption->variance,
                         'variance_percent' => $consumption->planned_quantity > 0
                             ? round(($consumption->variance / $consumption->planned_quantity) * 100, 2)
-                            : 0
+                            : 0,
+                        'uom_name' => $uomName,        // ⭐ TAMBAHKAN
+                        'uom_symbol' => $uomSymbol,    // ⭐ TAMBAHKAN
                     ];
                 })
             ]

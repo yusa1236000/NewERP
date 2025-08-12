@@ -150,14 +150,16 @@ class RoutingController extends Controller
                         'operation_name' => $operation['operation_name'],
                         'work_flow' => $operation['work_flow'] ?? null,
                         'models' => $operation['models'] ?? null,
-                        // Field existing
+                        'dimensi' => $operation['dimensi'] ?? null,
+                        'toleransi_max' => $operation['toleransi_max'] ?? null,
+                        'toleransi_min' => $operation['toleransi_min'] ?? null,
                         'sequence' => $operation['sequence'],
                         'setup_time' => $operation['setup_time'],
                         'run_time' => $operation['run_time'],
                         'uom_id' => $operation['uom_id'],
                         'labor_cost' => $operation['labor_cost'],
                         'overhead_cost' => $operation['overhead_cost'],
-                        'yield1' => $operation['yield1'] ?? null,
+                        'yield1' => $operation['yield1'] ?? 0, // Perbaikan: default 0 jika null
                     ]);
                 }
             }
@@ -270,14 +272,16 @@ class RoutingController extends Controller
                         'operation_name' => $operation['operation_name'],
                         'work_flow' => $operation['work_flow'] ?? null,
                         'models' => $operation['models'] ?? null,
-                        // Field existing
+                        'dimensi' => $operation['dimensi'] ?? null,
+                        'toleransi_max' => $operation['toleransi_max'] ?? null,
+                        'toleransi_min' => $operation['toleransi_min'] ?? null,
                         'sequence' => $operation['sequence'],
                         'setup_time' => $operation['setup_time'],
                         'run_time' => $operation['run_time'],
                         'uom_id' => $operation['uom_id'],
                         'labor_cost' => $operation['labor_cost'],
                         'overhead_cost' => $operation['overhead_cost'],
-                        'yield1' => $operation['yield1'] ?? null,
+                        'yield1' => $operation['yield1'] ?? 0, // Perbaikan: default 0 jika null
                     ]);
                 }
             }
@@ -394,7 +398,7 @@ class RoutingController extends Controller
                         'uom_id' => $operation->uom_id,
                         'labor_cost' => $operation->labor_cost,
                         'overhead_cost' => $operation->overhead_cost,
-                        'yield1' => $operation->yield1,
+                        'yield1' => $operation->yield1 ?? 0, // Default 0 jika null
                         'work_center' => $operation->workCenter,
                         'unit_of_measure' => $operation->unitOfMeasure,
                     ];

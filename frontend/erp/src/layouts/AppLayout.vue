@@ -475,22 +475,22 @@
                                     <!-- Tax Transactions Submenu -->
                                     <div class="submenu-section">
                                     <h4>Tax Transactions</h4>
-                                    <router-link 
-                                        to="/accounting/tax-transactions" 
+                                    <router-link
+                                        to="/accounting/tax-transactions"
                                         class="submenu-link">
                                         <i class="fas fa-list"></i>
                                         <span>All Transactions</span>
                                     </router-link>
-                                    
-                                    <router-link 
-                                        to="/accounting/tax-transactions/reports/summary" 
+
+                                    <router-link
+                                        to="/accounting/tax-transactions/reports/summary"
                                         class="submenu-link">
                                         <i class="fas fa-chart-bar"></i>
                                         <span>Summary Report</span>
                                     </router-link>
-                                    
-                                    <router-link 
-                                        to="/accounting/tax-transactions/filing/preparation" 
+
+                                    <router-link
+                                        to="/accounting/tax-transactions/filing/preparation"
                                         class="submenu-link">
                                         <i class="fas fa-file-invoice"></i>
                                         <span>Filing Preparation</span>
@@ -1067,6 +1067,10 @@ export default {
             'DeliveryDetail': [
                 { label: 'Deliveries', route: '/sales/deliveries', icon: 'fas fa-truck' },
                 { label: 'Delivery Detail', icon: 'fas fa-eye' }
+            ],
+            'CreateMultiSODelivery': [
+                { label: 'Deliveries', route: '/sales/deliveries', icon: 'fas fa-truck' },
+                { label: 'Create Multi-SO Delivery', icon: 'fas fa-plus' }
             ],
 
             // Purchase Orders

@@ -315,7 +315,24 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/{id}', [DeliveryController::class, 'update']);
         Route::delete('/{id}', [DeliveryController::class, 'destroy']);
         Route::post('/{id}/complete', [DeliveryController::class, 'complete']);
+        // Get outstanding sales orders by customer
+        Route::get('outstanding-so-by-customer/{customerId}', [DeliveryController::class, 'getOutstandingSalesOrdersByCustomer']);
+
+        // Create delivery from multiple sales orders
+        Route::post('create-from-multiple-so', [DeliveryController::class, 'createFromMultipleSO']);
+
+        // Get multi-SO delivery summary
+        Route::get('{deliveryId}/multi-so-summary', [DeliveryController::class, 'getMultiSODeliverySummary']);
+
+        // Complete multi-SO delivery
+        Route::post('{deliveryId}/complete-multi-so', [DeliveryController::class, 'completeMultiSODelivery']);
     });
+
+    // Additional specific routes for multi-SO functionality
+    Route::get('sales-orders/outstanding-by-customer/{customerId}', [DeliveryController::class, 'getOutstandingSalesOrdersByCustomer']);
+    Route::post('deliveries/multi-so', [DeliveryController::class, 'createFromMultipleSO']);
+    Route::get('deliveries/{deliveryId}/summary', [DeliveryController::class, 'getMultiSODeliverySummary']);
+    Route::put('deliveries/{deliveryId}/complete', [DeliveryController::class, 'completeMultiSODelivery']);
 
     // Sales Invoice routes
     Route::prefix('invoices')->group(function () {

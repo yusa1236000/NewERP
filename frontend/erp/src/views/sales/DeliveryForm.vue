@@ -3,14 +3,6 @@
   <div class="delivery-form">
     <div class="page-header">
       <h1>{{ isEditMode ? 'Edit Delivery' : 'Create New Delivery' }}</h1>
-      <!-- <div class="page-actions">
-        <button class="btn btn-secondary" @click="goBack">
-          <i class="fas fa-arrow-left"></i> Back
-        </button>
-        <button class="btn btn-primary" @click="saveDelivery" :disabled="isSubmitting">
-          <i class="fas fa-save"></i> {{ isSubmitting ? 'Saving...' : 'Save' }}
-        </button>
-      </div> -->
     </div>
 
     <div v-if="error" class="alert alert-danger">
@@ -153,6 +145,24 @@
       <div class="form-card">
         <div class="card-header">
           <h2>Item Delivery</h2>
+          <!-- Bulk Actions - Added here -->
+          <div v-if="form.lines.length > 0" class="card-actions">
+            <button type="button" @click="selectAllItems" class="btn-icon" title="Select All Outstanding Items">
+              <i class="fas fa-check-square"></i> Select All
+            </button>
+            <button type="button" @click="deselectAllItems" class="btn-icon" title="Deselect All Items">
+              <i class="fas fa-square"></i> Deselect All
+            </button>
+            <button
+              type="button"
+              @click="removeSelectedItems"
+              class="btn-icon delete-btn"
+              :disabled="selectedItems.length === 0"
+              title="Remove Selected Items"
+            >
+              <i class="fas fa-trash"></i> Remove Selected ({{ selectedItems.length }})
+            </button>
+          </div>
         </div>
         <div class="card-body">
           <div v-if="form.lines.length === 0" class="empty-lines">
@@ -161,6 +171,14 @@
 
           <div v-else class="delivery-lines">
             <div class="line-headers">
+              <div class="line-header">
+                <input
+                  type="checkbox"
+                  @change="toggleSelectAll"
+                  :checked="isAllSelected"
+                  :indeterminate="isPartiallySelected"
+                /> Select
+              </div>
               <div class="line-header">Item</div>
               <div class="line-header">Ordered Quantity</div>
               <div class="line-header">Delivered Quantity</div>
@@ -175,7 +193,16 @@
               v-for="(line, index) in form.lines"
               :key="index"
               class="delivery-line"
+              :class="{ 'selected-line': selectedItems.includes(index) }"
             >
+              <div class="line-item">
+                <input
+                  type="checkbox"
+                  v-model="selectedItems"
+                  :value="index"
+                />
+              </div>
+
               <div class="line-item">
                 <div class="item-info" v-if="line.item">
                 <div class="item-code">{{ line.item.itemCode }}</div>
@@ -292,9 +319,21 @@ export default {
     const isSubmitting = ref(false);
     const error = ref('');
 
+    // ⭐ NEW: Bulk selection state
+    const selectedItems = ref([]);
+
     // Check if we're in edit mode
     const isEditMode = computed(() => {
       return route.params.id !== undefined;
+    });
+
+    // ⭐ NEW: Computed properties for bulk selection
+    const isAllSelected = computed(() => {
+      return form.value.lines.length > 0 && selectedItems.value.length === form.value.lines.length;
+    });
+
+    const isPartiallySelected = computed(() => {
+      return selectedItems.value.length > 0 && selectedItems.value.length < form.value.lines.length;
     });
 
     // Computed property to filter sales orders based on search input
@@ -306,6 +345,52 @@ export default {
         so.so_number.toLowerCase().includes(soSearch.value.toLowerCase()) ||
         so.customer.name.toLowerCase().includes(soSearch.value.toLowerCase())
       );
+    });
+
+    // ⭐ NEW: Bulk selection methods
+    const selectAllItems = () => {
+      // Select all items that have outstanding quantity > 0
+      selectedItems.value = form.value.lines
+        .map((line, index) => getOutstandingQuantity(line) > 0 ? index : null)
+        .filter(index => index !== null);
+    };
+
+    const deselectAllItems = () => {
+      selectedItems.value = [];
+    };
+
+    const toggleSelectAll = () => {
+      if (isAllSelected.value) {
+        deselectAllItems();
+      } else {
+        selectAllItems();
+      }
+    };
+
+    const removeSelectedItems = () => {
+      if (selectedItems.value.length === 0) return;
+
+      const itemCount = selectedItems.value.length;
+      const message = `Are you sure you want to remove ${itemCount} selected item${itemCount > 1 ? 's' : ''}?`;
+
+      if (confirm(message)) {
+        // Sort indices in descending order to avoid index shifting issues
+        const sortedIndices = [...selectedItems.value].sort((a, b) => b - a);
+
+        // Remove items from the end to avoid index issues
+        sortedIndices.forEach(index => {
+          form.value.lines.splice(index, 1);
+        });
+
+        // Clear selection
+        selectedItems.value = [];
+      }
+    };
+
+    // Watch for form.lines changes to update selection indices
+    watch(() => form.value.lines.length, (newLength) => {
+      // Remove invalid indices from selection
+      selectedItems.value = selectedItems.value.filter(index => index < newLength);
     });
 
     // Method to select a sales order from the dropdown
@@ -334,6 +419,8 @@ export default {
         soSearch.value = '';
         selectedCustomer.value = null;
         form.value.lines = [];
+        // Clear selection when sales order changes
+        selectedItems.value = [];
       }
     });
 
@@ -533,6 +620,7 @@ export default {
       if (!form.value.so_id) {
         selectedCustomer.value = null;
         form.value.lines = [];
+        selectedItems.value = []; // Clear selection
         return;
       }
 
@@ -573,6 +661,9 @@ export default {
               batch_number: '',
               warehouse_stocks: item.warehouse_stocks || []
             }));
+
+            // Clear selection when loading new sales order
+            selectedItems.value = [];
           }
         }
       } catch (err) {
@@ -608,10 +699,15 @@ export default {
       }
     };
 
-    // Remove a line
+    // Remove a line (updated to handle selection)
     const removeLine = (index) => {
       if (confirm('Are you sure you want to remove this item?')) {
         form.value.lines.splice(index, 1);
+
+        // Update selected items indices
+        selectedItems.value = selectedItems.value
+          .filter(selectedIndex => selectedIndex !== index)
+          .map(selectedIndex => selectedIndex > index ? selectedIndex - 1 : selectedIndex);
       }
     };
 
@@ -721,7 +817,15 @@ export default {
       removeLine,
       loadSalesOrderDetails,
       goBack,
-      saveDelivery
+      saveDelivery,
+      // ⭐ NEW: Expose bulk selection functionality
+      selectedItems,
+      isAllSelected,
+      isPartiallySelected,
+      selectAllItems,
+      deselectAllItems,
+      toggleSelectAll,
+      removeSelectedItems
     };
   }
 };
@@ -790,6 +894,13 @@ export default {
   font-weight: 600;
   margin: 0;
   color: #1e293b;
+}
+
+/* ⭐ NEW: Card actions styles */
+.card-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
 }
 
 .card-body {
@@ -989,7 +1100,7 @@ export default {
 
 .line-headers {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr 1fr 0.5fr;
+  grid-template-columns: 0.5fr 2fr 1fr 1fr 1fr 1fr 1fr 1fr 0.5fr;
   gap: 0.5rem;
   background-color: #f8fafc;
   padding: 0.75rem 1rem;
@@ -1004,15 +1115,22 @@ export default {
 
 .delivery-line {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr 1fr 0.5fr;
+  grid-template-columns: 0.5fr 2fr 1fr 1fr 1fr 1fr 1fr 1fr 0.5fr;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
   border-bottom: 1px solid #e2e8f0;
   align-items: center;
+  transition: background-color 0.2s;
 }
 
 .delivery-line:last-child {
   border-bottom: none;
+}
+
+/* ⭐ NEW: Selected line highlighting */
+.delivery-line.selected-line {
+  background-color: #f0f9ff;
+  border-left: 3px solid #2563eb;
 }
 
 .line-item input,
@@ -1091,18 +1209,25 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
   transition: background-color 0.2s, color 0.2s;
 }
 
-.btn-icon:hover {
+.btn-icon:hover:not(:disabled) {
   background-color: #f1f5f9;
+}
+
+.btn-icon:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .delete-btn {
   color: #64748b;
 }
 
-.delete-btn:hover {
+.delete-btn:hover:not(:disabled) {
   color: #dc2626;
   background-color: #fee2e2;
 }
@@ -1127,7 +1252,7 @@ export default {
 
   .delivery-line,
   .line-headers {
-    grid-template-columns: repeat(8, 1fr);
+    grid-template-columns: repeat(9, 1fr);
     font-size: 0.75rem;
     padding: 0.5rem;
   }
