@@ -105,6 +105,8 @@ class RoutingController extends Controller
                 'yield' => 'nullable|numeric|min:0',
                 'yield_perikat' => 'nullable|numeric|min:0',
                 'tooling_code' => 'nullable|string|max:50',
+                'yield1_headerpcc' => 'nullable|numeric|min:0|max:9999.9999',
+                'size_headerpcc' => 'nullable|numeric|max:100',
                 'operations' => 'array',
                 'operations.*.workcenter_id' => 'required|integer|exists:work_centers,workcenter_id',
                 'operations.*.operation_name' => 'required|string|max:100',
@@ -140,6 +142,8 @@ class RoutingController extends Controller
                 'yield' => $request->yield,
                 'yield_perikat' => $request->yield_perikat,
                 'tooling_code' => $request->tooling_code,
+                'yield1_headerpcc' => $request->yield1_headerpcc,
+                'size_headerpcc' => $request->size_headerpcc,
             ]);
 
             if ($request->has('operations')) {
@@ -218,6 +222,8 @@ class RoutingController extends Controller
                 'yield' => 'nullable|numeric|min:0',
                 'yield_perikat' => 'nullable|numeric|min:0',
                 'tooling_code' => 'nullable|string|max:50',
+                'yield1_headerpcc' => 'nullable|numeric|min:0|max:9999.9999',
+                'size_headerpcc' => 'nullable|numeric|min:0|max:100',
                 'operations' => 'array',
                 'operations.*.workcenter_id' => 'required|integer|exists:work_centers,workcenter_id',
                 'operations.*.operation_name' => 'required|string|max:100',
@@ -259,6 +265,8 @@ class RoutingController extends Controller
                 'yield' => $request->yield,
                 'yield_perikat' => $request->yield_perikat,
                 'tooling_code' => $request->tooling_code,
+                'yield1_headerpcc' => $request->yield1_headerpcc,
+                'size_headerpcc' => $request->size_headerpcc,
             ]);
 
             // Delete existing operations and recreate

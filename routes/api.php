@@ -299,6 +299,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/excel/template', [SalesOrderController::class, 'downloadTemplate']);
         Route::post('/excel/import', [SalesOrderController::class, 'importFromExcel']);
         Route::get('/excel/export', [SalesOrderController::class, 'exportToExcel']);
+        // Routes untuk Outstanding Sales Order
+        Route::get('sales-orders/{id}/outstanding-items', [SalesOrderController::class, 'getOutstandingItems']);
     });
 
     Route::prefix('deliveries')->group(function () {
@@ -309,12 +311,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('outstanding-so', [DeliveryController::class, 'getOutstandingSalesOrders']);
         Route::get('outstanding-items/{soId}', [DeliveryController::class, 'getOutstandingItemsForDelivery']);
         Route::post('from-outstanding', [DeliveryController::class, 'storeFromOutstanding']);
+        // NEW: Add this line for auto-generation of delivery numbers
+        Route::get('/next-number', [DeliveryController::class, 'getNextDeliveryNumber']);
 
         // Route dengan parameter {id} harus di akhir
         Route::get('/{id}', [DeliveryController::class, 'show']);
         Route::put('/{id}', [DeliveryController::class, 'update']);
         Route::delete('/{id}', [DeliveryController::class, 'destroy']);
         Route::post('/{id}/complete', [DeliveryController::class, 'complete']);
+
+
         // Get outstanding sales orders by customer
         Route::get('outstanding-so-by-customer/{customerId}', [DeliveryController::class, 'getOutstandingSalesOrdersByCustomer']);
 

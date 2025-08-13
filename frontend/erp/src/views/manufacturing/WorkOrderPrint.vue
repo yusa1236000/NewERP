@@ -1,199 +1,202 @@
+<!--WorkOrderPrint..vue-->
 <template>
-  <div class="print-container">
+<div class="print-container">
     <!-- Print Actions - Hidden during print -->
     <div class="print-actions no-print">
-      <button class="btn btn-primary" @click="printDocument" :disabled="isLoading">
+    <button class="btn btn-primary" @click="printDocument" :disabled="isLoading">
         <i class="fas fa-print"></i>
         <span v-if="isLoading">⏳ Loading...</span>
         <span v-else>Print Document</span>
-      </button>
-      <button class="btn btn-danger" @click="printPdf" :disabled="isLoading" style="margin-left: 0.5rem;">
+    </button>
+    <button class="btn btn-danger" @click="printPdf" :disabled="isLoading" style="margin-left: 0.5rem;">
         <i class="fas fa-file-pdf"></i> Save as PDF
-      </button>
-      <button class="btn btn-secondary" @click="goBack">
+    </button>
+    <button class="btn btn-secondary" @click="goBack">
         <i class="fas fa-arrow-left"></i> Back
-      </button>
+    </button>
     </div>
 
     <!-- Loading spinner -->
     <div v-if="isLoading" class="loading-container">
-      <div class="text-center">
+    <div class="text-center">
         <div class="spinner-border" role="status">
-          <span class="sr-only">Loading...</span>
+        <span class="sr-only">Loading...</span>
         </div>
         <p>Loading Job order data...</p>
-      </div>
+    </div>
     </div>
 
     <!-- Error message -->
     <div v-if="error" class="alert alert-danger">
-      <strong>Error:</strong> {{ error }}
-      <button @click="loadWorkOrderData" class="btn btn-sm btn-outline-danger ml-2">
+    <strong>Error:</strong> {{ error }}
+    <button @click="loadWorkOrderData" class="btn btn-sm btn-outline-danger ml-2">
         Retry
-      </button>
+    </button>
     </div>
 
     <!-- Print Content - A4 Document -->
     <div class="document-wrapper" v-if="!isLoading && !error">
-      <div id="printDocument" class="work-order-document">
+    <div id="printDocument" class="work-order-document">
         <div class="container">
-          <!-- Header atas (JO No dan Prod Date, Delivery Date) -->
-          <div class="header-top">
+        <!-- Header atas (JO No dan Prod Date, Delivery Date) -->
+        <div class="header-top">
             <div class="jo-no">
-              <span>JO No :</span>
-              <b>{{ workOrderData.wo_number || 'Loading...' }}</b>
+            <span>JO No :</span>
+            <b>{{ workOrderData.wo_number || 'Loading...' }}</b>
             </div>
 
             <div class="right-dates">
-              <div class="prod-date">
+            <div class="prod-date">
                 Prod Date : <b>{{ formatDate(workOrderData.planned_start_date) || formatDate(new Date()) }}</b>
-              </div>
-              <div class="delivery-date">
-                Delivery Date : <b>{{ formatDate(workOrderData.planned_end_date) || formatDate(new Date()) }}</b>
-              </div>
             </div>
-          </div>
+            <div class="delivery-date">
+                Delivery Date : <b>{{ formatDate(workOrderData.planned_end_date) || formatDate(new Date()) }}</b>
+            </div>
+            </div>
+        </div>
 
-          <!-- Bagian utama kiri - left + issue wh di sebelah kiri, dan kanan yield + flow chart -->
-          <div class="main-body">
+        <!-- Bagian utama kiri - left + issue wh di sebelah kiri, dan kanan yield + flow chart -->
+        <div class="main-body">
             <!-- Kiri: Customer, Part Info, MatCode, TapeCode, Barcodes -->
             <div class="left-section">
-              <dl>
+            <dl>
                 <div class="row">
-                  <dt>Customer</dt>
-                  <dd>{{ workOrderData.customer_name || (workOrderData.primary_customer?.customer_name || 'PT. YAMAHA MUSIC MANUFACTURING Dummy') }}</dd>
+                <dt>Customer</dt>
+                <dd>{{ workOrderData.customer_name || (workOrderData.primary_customer?.customer_name || 'PT. YAMAHA MUSIC MANUFACTURING Dummy') }}</dd>
                 </div>
                 <div class="row">
-                  <dt>Intern Code</dt>
-                  <dd>{{ workOrderData.item?.item_code || 'Null' }}</dd>
+                <dt>Intern Code</dt>
+                <dd>{{ workOrderData.item?.item_code || 'Null' }}</dd>
                 </div>
                 <div class="row">
-                  <dt>Cust Code</dt>
-                  <dd>{{ workOrderData.primary_customer?.customer_code || 'YMI-0001 Dummy' }}</dd>
+                <dt>Cust Code</dt>
+                <dd>{{ workOrderData.primary_customer?.customer_code || 'YMI-0001 Dummy' }}</dd>
                 </div>
                 <div class="row">
-                  <dt>Part Name</dt>
-                  <dd class="bold-dd">{{ workOrderData.item?.name || 'CUSHION Dummy' }}</dd>
+                <dt>Part Name</dt>
+                <dd class="bold-dd">{{ workOrderData.item?.name || 'CUSHION Dummy' }}</dd>
                 </div>
                 <div class="row">
-                  <dt>Size</dt>
-                  <dd>{{ workOrderData.item?.description || 'YMM0001 Dummy' }}</dd>
+                <dt>Size</dt>
+                <dd>{{ workOrderData.item?.description || 'YMM0001 Dummy' }}</dd>
                 </div>
                 <div class="row">
-                  <dt>Process</dt>
-                  <dd>{{ workOrderData.routing?.process || 'SINGLE KNIFE Dummy' }}</dd>
+                <dt>Process</dt>
+                <dd>{{ workOrderData.routing?.process || 'SINGLE KNIFE Dummy' }}</dd>
                 </div>
 
                 <div class="row cavity-punch-knife">
-                  <div class="cavity-punch-wrapper">
+                <div class="cavity-punch-wrapper">
                     <div class="item">
-                      <dt>Cavity</dt>
-                      <dd>{{ workOrderData.routing?.cavity || '1 Dummy' }}</dd>
+                    <dt>Cavity</dt>
+                    <dd>{{ workOrderData.routing?.cavity || '1 Dummy' }}</dd>
                     </div>
                     <div class="item">
-                      <dt>Total Punch</dt>
-                      <dd>{{ workOrderData.total_punch || '' }}</dd>
+                    <dt>Total Punch</dt>
+                    <dd>{{ workOrderData.total_punch || '' }}</dd>
                     </div>
-                  </div>
-                  <div class="single-knife-inline">
+                </div>
+                <div class="single-knife-inline">
                     {{ workOrderData.routing?.process || 'SINGLE KNIFE' }}
-                  </div>
+                </div>
                 </div>
 
                 <div class="row">
-                  <dt>ECN#</dt>
-                  <dd>{{ workOrderData.ecn || '' }}</dd>
+                <dt>ECN#</dt>
+                <dd>{{ workOrderData.ecn || '' }}</dd>
                 </div>
                 <div class="row">
-                  <dt>Set Jump</dt>
-                  <dd>{{ workOrderData.routing?.set_jump || '0.000 Dummy' }}</dd>
-                  <dd></dd>
+                <dt>Set Jump</dt>
+                <dd>{{ workOrderData.routing?.set_jump || '0.000 Dummy' }}</dd>
+                <dd></dd>
                 </div>
-              </dl>
+            </dl>
 
-              <!-- Updated mat-codes section with dynamic data from BOM -->
-              <div class="mat-codes">
+            <!-- Updated mat-codes section with dynamic data from BOM -->
+            <div class="mat-codes">
                 <div v-for="(material, index) in materials" :key="index" class="mat-code-item">
-                  <div><b>MatCode {{ index + 1 }}</b> : <span>{{ material.code || '□□□□□□' }}</span></div>
-                  <div><b>MatNm {{ index + 1 }}</b> : {{ material.name || '' }}</div>
-                  <div><b>Size :</b> {{ material.size || '' }}</div>
-                  <div><b>Yield :</b> {{ material.yield || '' }}</div>
-                  <div><b>Issue Qty :</b> {{ material.issue_qty || '0.00000' }} /</div>
-                  <div><b>Qty/Mtr :</b> {{ material.qty_mtr }}</div>
+                <div><b>MatCode {{ index + 1 }}</b> : <span>{{ material.code || '□□□□□□' }}</span></div>
+                <div><b>MatNm {{ index + 1 }}</b> : {{ material.name || '' }}</div>
+                <div><b>Size :</b> {{ material.size || '' }}</div>
+                <div><b>Yield :</b> {{ material.yield || '' }}</div>
+                <div><b>Issue Qty :</b> {{ material.issue_qty || '0.00000' }} /</div>
+                <div><b>Qty/Mtr :</b> {{ material.qty_mtr }}</div>
                 </div>
-              </div>
+            </div>
 
-              <div class="tape-codes">
+            <div class="tape-codes">
                 <div v-for="(tape, index) in tapes" :key="index">
-                  <div><b>TapeCode {{ index + 1 }}</b>: {{ tape.code || '' }}</div>
-                  <div><b>TapeNm{{ index + 1 }} :</b> {{ tape.name || '' }}</div>
-                  <div><b>Size :</b> {{ tape.size || '' }}</div>
-                  <div><b>Yield :</b> {{ tape.yield || '' }}</div>
-                  <div><b>Issue Qty :</b> {{ tape.issue_qty || '0.00000' }} /</div>
+                <div><b>TapeCode {{ index + 1 }}</b>: {{ tape.code || '' }}</div>
+                <div><b>TapeNm{{ index + 1 }} :</b> {{ tape.name || '' }}</div>
+                <div><b>Size :</b> {{ tape.size || '' }}</div>
+                <div><b>Yield :</b> {{ tape.yield || '' }}</div>
+                <div><b>Issue Qty :</b> {{ tape.issue_qty || '0.00000' }} /</div>
                 </div>
                 <div>
-                  <div><b>Sub Material :</b></div>
-                  <div><b>Sub Material :</b></div>
-                  <div><b>Sub Material :</b></div>
-                  <div><b>Sub Material :</b></div>
+                <div><b>Sub Material :</b></div>
+                <div><b>Sub Material :</b></div>
+                <div><b>Sub Material :</b></div>
+                <div><b>Sub Material :</b></div>
                 </div>
-              </div>
+            </div>
 
-              <div class="barcode-section">
+            <div class="barcode-section">
                 <!-- unused for now -->
-              </div>
+            </div>
             </div>
 
             <!-- Middle Section: Issue WH sampai Important ada disini, sejajar dengan Customer -->
             <div class="middle-section">
-              <table class="info-table issue-important">
+            <table class="info-table issue-important">
                 <tbody>
-                  <tr><td>Issue WH :</td><td>{{ workOrderData.issue_wh || '' }}</td></tr>
-                  <tr><td>Issue Date</td><td>{{ formatDate(workOrderData.wo_date) || formatDate(new Date()) }}</td></tr>
-                  <tr><td>Print Date</td><td>{{ formatDate(new Date()) || '17 May 2025 Dum' }}</td></tr>
-                  <tr><td>Order Qty</td><td>{{ formatNumber(workOrderData.actual_quantity) || ' ' }} PCS</td></tr>
-                  <tr><td>Prod. Qty</td><td>{{ formatNumber(workOrderData.planned_quantity) || '2,388 Dummy' }} PCS</td></tr>
-                  <tr><td>Important</td><td>{{ workOrderData.important || '' }}</td></tr>
-                  <tr><td>Yield</td><td>{{ workOrderData.routing?.yield || '' }}</td></tr>
-                  <tr><td>Size</td><td>{{ workOrderData.description || '' }}</td></tr>
-                  <tr><td>Qty</td><td>{{ workOrderData.qty_info || '' }}</td></tr>
+                <tr><td>Issue WH :</td><td>{{ workOrderData.issue_wh || '' }}</td></tr>
+                <tr><td>Issue Date</td><td>{{ formatDate(workOrderData.wo_date) || formatDate(new Date()) }}</td></tr>
+                <tr><td>Print Date</td><td>{{ formatDate(new Date()) || '17 May 2025 Dum' }}</td></tr>
+                <tr><td>Order Qty</td><td>{{ formatNumber(workOrderData.actual_quantity) || ' ' }} PCS</td></tr>
+                <tr><td>Prod. Qty</td><td>{{ formatNumber(workOrderData.planned_quantity) || '2,388 Dummy' }} PCS</td></tr>
+                <tr><td>Important</td><td>{{ workOrderData.important || '' }}</td></tr>
+                <br>
+                <tr><td>Yield</td><td>{{ workOrderData.routing?.yield || '' }}</td></tr>
+                <tr class="size-row"><td>Size</td><td class="size-field">{{ workOrderData.routing?.size_headerpcc || '' }}</td></tr>
+                <tr><td>Qty</td><td>{{ workOrderData.routing?.yield1_headerpcc || '' }}</td></tr>
+                <tr><td>Tooling Code:</td><td>{{ workOrderData.routing?.tooling_code || '-' }}</td></tr>
                 </tbody>
-              </table>
+            </table>
             </div>
 
             <!-- Kanan: Bagian Yield dan Flow Chart History -->
             <div class="right-section">
-              <table class="flow-chart-history">
+            <table class="flow-chart-history">
                 <thead>
-                  <tr>
+                <tr>
                     <th colspan="4">Flow Chart History</th>
-                  </tr>
-                  <tr>
+                </tr>
+                <tr>
                     <th>Date</th>
                     <th>Process</th>
                     <th>Qty</th>
                     <th>Name</th>
-                  </tr>
+                </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(history, index) in flowChartHistory" :key="index">
+                <tr v-for="(history, index) in flowChartHistory" :key="index">
                     <td>{{ formatDate(history.date) || '&nbsp;' }}</td>
                     <td>{{ history.process || '&nbsp;' }}</td>
                     <td>{{ history.qty || '&nbsp;' }}</td>
                     <td>{{ history.name || '&nbsp;' }}</td>
-                  </tr>
-                  <tr v-for="n in Math.max(0, 10 - flowChartHistory.length)" :key="'empty-' + n">
+                </tr>
+                <tr v-for="n in Math.max(0, 10 - flowChartHistory.length)" :key="'empty-' + n">
                     <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
-                  </tr>
+                </tr>
                 </tbody>
-              </table>
+            </table>
             </div>
-          </div>
+        </div>
 
-          <!-- Workflow Table -->
-          <table class="workflow-table">
+        <!-- Workflow Table -->
+        <table class="workflow-table">
             <thead>
-              <tr>
+            <tr>
                 <th>Process</th>
                 <th>Work Flow</th>
                 <th>Tolerance</th>
@@ -204,14 +207,14 @@
                 <th>Proces (mnt)</th>
                 <th>Total (mnt)</th>
                 <th>Status</th>
-              </tr>
+            </tr>
             </thead>
             <tbody>
-              <tr v-for="workflow in workflows" :key="workflow.id">
+            <tr v-for="workflow in workflows" :key="workflow.id">
                 <td>{{ workflow.work_center.name }}</td>
                 <td v-html="workflow.work_flow"></td>
                 <!-- <td>{{ workflow.toleransi_max }}</td> -->
-                 <td>{{ workflow.toleransi_min }}{{ workflow.toleransi_min && workflow.toleransi_max ? '  ' : '' }}{{ workflow.toleransi_max }}</td>
+                <td>{{ workflow.toleransi_min }}{{ workflow.toleransi_min && workflow.toleransi_max ? '  ' : '' }}{{ workflow.toleransi_max }}</td>
                 <td>{{ workflow.check_process }}</td>
                 <td>{{ workflow.qty }}</td>
                 <td>{{ workflow.machine }}</td>
@@ -219,69 +222,69 @@
                 <td>{{ workflow.proces }}</td>
                 <td>{{ workflow.total }}</td>
                 <td>{{ workflow.status }}</td>
-              </tr>
+            </tr>
             </tbody>
-          </table>
+        </table>
 
-          <!-- Catatan Penting - Updated layout to match koding 2 -->
-          <div class="catatan-penting">
+        <!-- Catatan Penting - Updated layout to match koding 2 -->
+        <div class="catatan-penting">
             <div class="catatan-header">
-              <em><b>Important Notes :</b></em>
-              <span class="date-note">{{ formatDate(workOrderData.planned_end_date) || '02/01/2025 Dummy' }}</span>
+            <em><b>Important Notes :</b></em>
+            <span class="date-note">{{ formatDate(workOrderData.planned_end_date) || '02/01/2025 Dummy' }}</span>
             </div>
             <div v-if="workOrderData.notes" class="notes-content">{{ workOrderData.notes }}</div>
-          </div>
+        </div>
 
-          <!-- Footer -->
-          <div class="footer-bottom">
+        <!-- Footer -->
+        <div class="footer-bottom">
             <div class="partial-info">
-              <div>* Partial / No Partial</div>
-              <div class="partial-gin-no">
+            <div>* Partial / No Partial</div>
+            <div class="partial-gin-no">
                 <label for="partial-gin-no-input">Partial GIN No :</label>
                 <input id="partial-gin-no-input" type="text" />
                 <span>/</span>
-              </div>
-              <div class="warning-text">
+            </div>
+            <div class="warning-text">
                 <b>MAKE SURE LOT NO. MUST BE INPUT !!!</b>
-              </div>
+            </div>
             </div>
 
             <table class="footer-table">
-              <thead>
+            <thead>
                 <tr>
-                  <th>Standard</th>
-                  <th>Lot Material</th>
-                  <th>Lot Material</th>
-                  <th>Lot Material</th>
-                  <th>Reject Qty</th>
+                <th>Standard</th>
+                <th>Lot Material</th>
+                <th>Lot Material</th>
+                <th>Lot Material</th>
+                <th>Reject Qty</th>
                 </tr>
-              </thead>
-              <tbody>
+            </thead>
+            <tbody>
                 <tr>
-                  <td>No. of Plastic</td>
-                  <td>Lot adhesive</td>
-                  <td>Lot adhesive</td>
-                  <td>Lot adhesive</td>
-                  <td></td>
+                <td>No. of Plastic</td>
+                <td>Lot adhesive</td>
+                <td>Lot adhesive</td>
+                <td>Lot adhesive</td>
+                <td></td>
                 </tr>
                 <tr>
-                  <td>No. of Carton</td>
-                  <td>Machine</td>
-                  <td>Operator</td>
-                  <td>{{ formatDate(workOrderData.planned_end_date) || '02/01/2025' }}</td>
-                  <td></td>
+                <td>No. of Carton</td>
+                <td>Machine</td>
+                <td>Operator</td>
+                <td>{{ formatDate(workOrderData.planned_end_date) || '02/01/2025' }}</td>
+                <td></td>
                 </tr>
-              </tbody>
+            </tbody>
             </table>
 
             <div class="footer-note">
-              *) Just streak (coret) if part partial or no partial
+            *) Just streak (coret) if part partial or no partial
             </div>
-          </div>
         </div>
-      </div>
+        </div>
     </div>
-  </div>
+    </div>
+</div>
 </template>
 
 <script>
@@ -291,8 +294,8 @@ import axios from 'axios';
 import html2pdf from 'html2pdf.js';
 
 export default {
-  name: "WorkOrderPrint",
-  setup() {
+name: "WorkOrderPrint",
+setup() {
     const route = useRoute();
     const router = useRouter();
     const workOrderData = ref({});
@@ -300,62 +303,62 @@ export default {
     const error = ref(null);
 
     const materials = ref([
-      {
+    {
         code: '□□□□□□',
         name: 'TORAY PEF/2MM',
         size: '2MMX1000MMX200M',
         yield: '82,784',
         issue_qty: '0.02885',
         qty_mtr: '□□□□□□'
-      },
-      {
+    },
+    {
         code: '□□□□□□',
         name: '',
         size: '',
         yield: '',
         issue_qty: '0.00000',
         qty_mtr: '□□□□□□'
-      },
-      {
+    },
+    {
         code: '□□□□□□',
         name: '',
         size: '',
         yield: '',
         issue_qty: '0.00000',
         qty_mtr: '□□□□□□'
-      }
+    }
     ]);
 
     const tapes = ref([
-      {
+    {
         code: 'N500A/1210',
         name: '',
         size: '',
         yield: '20,696',
         issue_qty: '0.11538 / RL'
-      },
-      {
+    },
+    {
         code: '',
         name: '',
         size: '',
         yield: '',
         issue_qty: '0.00000'
-      }
+    }
     ]);
 
     const flowChartHistory = ref([]);
 
     // Safe computed property untuk workflows dengan null checking
 const workflows = computed(() => {
-  // Safe checking untuk data utama
-  if (!workOrderData.value ||
-      !workOrderData.value.work_order_operations ||
-      !Array.isArray(workOrderData.value.work_order_operations) ||
-      workOrderData.value.work_order_operations.length === 0) {
+// Safe checking untuk data utama
+if (!workOrderData.value ||
+    !workOrderData.value.work_order_operations ||
+    !Array.isArray(workOrderData.value.work_order_operations) ||
+    workOrderData.value.work_order_operations.length === 0) {
 
     // Return default data if no API data available
     return [
-      {
+    {
         id: 1,
         work_center: { name: 'SLIT', code: 'SLIT', workcenter_id: 39 },
         work_flow: 'SLIT HN611B YANG RATA',
@@ -368,8 +371,8 @@ const workflows = computed(() => {
         proces: '0.5',
         total: '5.5',
         status: 'Pending'
-      },
-      {
+    },
+    {
         id: 2,
         work_center: { name: 'LAMN', code: 'LAMN', workcenter_id: 22 },
         work_flow: 'LAMN HN BAGIAN LUAR ROLL',
@@ -382,8 +385,8 @@ const workflows = computed(() => {
         proces: '0.01',
         total: '0.01',
         status: 'Pending'
-      },
-      {
+    },
+    {
         id: 3,
         work_center: { name: 'PUNCH', code: 'PUNCH', workcenter_id: 33 },
         work_flow: 'LANGSUNG DEFLASING',
@@ -396,8 +399,8 @@ const workflows = computed(() => {
         proces: '0.19',
         total: '15.19',
         status: 'Pending'
-      },
-      {
+    },
+    {
         id: 4,
         work_center: { name: 'PRECUT', code: 'PRECUT', workcenter_id: 29 },
         work_flow: '2 PCS X 10 PCS= 20 PCS',
@@ -410,8 +413,8 @@ const workflows = computed(() => {
         proces: '0.02',
         total: '5.02',
         status: 'Pending'
-      },
-      {
+    },
+    {
         id: 5,
         work_center: { name: 'PACK', code: 'PACK', workcenter_id: 27 },
         work_flow: 'SIZE 3X65X580MM',
@@ -424,86 +427,86 @@ const workflows = computed(() => {
         proces: '0.2',
         total: '5.2',
         status: 'Pending'
-      }
+    }
     ];
-  }
+}
 
-  try {
+try {
     // Map API data to workflow format dengan safe checking
     return workOrderData.value.work_order_operations.map((operation, index) => {
-      // Safe checking untuk operation
-      if (!operation) {
+    // Safe checking untuk operation
+    if (!operation) {
         return {
-          id: index + 1,
-          work_center: { name: `Work Center ${index + 1}`, code: `WC${index + 1}` },
-          work_flow: `Operation ${index + 1}`,
-          toleransi_max: '',
-          toleransi_min: '',
-          check_process: '',
-          qty: '',
-          machine: 'MANUAL',
-          setup: '0',
-          proces: '0',
-          total: '0',
-          status: 'Pending'
+        id: index + 1,
+        work_center: { name: `Work Center ${index + 1}`, code: `WC${index + 1}` },
+        work_flow: `Operation ${index + 1}`,
+        toleransi_max: '',
+        toleransi_min: '',
+        check_process: '',
+        qty: '',
+        machine: 'MANUAL',
+        setup: '0',
+        proces: '0',
+        total: '0',
+        status: 'Pending'
         };
-      }
+    }
 
-      const routingOp = operation.routing_operation || {};
+    const routingOp = operation.routing_operation || {};
 
-      // Safe checking dan ambil work center object
-      let workCenterObj = null;
+    // Safe checking dan ambil work center object
+    let workCenterObj = null;
 
-      // Method 1: Dari routing_operation langsung
-      if (routingOp && routingOp.work_center && typeof routingOp.work_center === 'object') {
+    // Method 1: Dari routing_operation langsung
+    if (routingOp && routingOp.work_center && typeof routingOp.work_center === 'object') {
         workCenterObj = {
-          name: routingOp.work_center.name || 'Unknown',
-          code: routingOp.work_center.code || 'UNKNOWN',
-          workcenter_id: routingOp.work_center.workcenter_id || index + 1
+        name: routingOp.work_center.name || 'Unknown',
+        code: routingOp.work_center.code || 'UNKNOWN',
+        workcenter_id: routingOp.work_center.workcenter_id || index + 1
         };
-      }
-      // Method 2: Dari routing.routing_operations
-      else if (workOrderData.value.routing &&
-               Array.isArray(workOrderData.value.routing.routing_operations)) {
+    }
+    // Method 2: Dari routing.routing_operations
+    else if (workOrderData.value.routing &&
+            Array.isArray(workOrderData.value.routing.routing_operations)) {
 
         const matchingRoutingOp = workOrderData.value.routing.routing_operations.find(
-          ro => ro && ro.operation_id === routingOp.operation_id
+        ro => ro && ro.operation_id === routingOp.operation_id
         );
 
         if (matchingRoutingOp && matchingRoutingOp.work_center &&
             typeof matchingRoutingOp.work_center === 'object') {
-          workCenterObj = {
+        workCenterObj = {
             name: matchingRoutingOp.work_center.name || 'Unknown',
             code: matchingRoutingOp.work_center.code || 'UNKNOWN',
             workcenter_id: matchingRoutingOp.work_center.workcenter_id || index + 1
-          };
-        }
-      }
-
-      // Fallback work center object
-      if (!workCenterObj) {
-        workCenterObj = {
-          name: `Work Center ${index + 1}`,
-          code: `WC${index + 1}`,
-          workcenter_id: index + 1
         };
-      }
+        }
+    }
 
-      // Safe string processing
-      const workFlowText = (routingOp.work_flow && typeof routingOp.work_flow === 'string')
+    // Fallback work center object
+    if (!workCenterObj) {
+        workCenterObj = {
+        name: `Work Center ${index + 1}`,
+        code: `WC${index + 1}`,
+        workcenter_id: index + 1
+        };
+    }
+
+    // Safe string processing
+    const workFlowText = (routingOp.work_flow && typeof routingOp.work_flow === 'string')
         ? routingOp.work_flow
         : `Operation ${index + 1}`;
-      const formattedWorkFlow = workFlowText.replace(/\n/g, '<br />');
+    const formattedWorkFlow = workFlowText.replace(/\n/g, '<br />');
 
-      // Safe machine name
-      const machineFromModels = routingOp.models || workCenterObj.code || 'MANUAL';
+    // Safe machine name
+    const machineFromModels = routingOp.models || workCenterObj.code || 'MANUAL';
 
-      // Safe number parsing
-      const setupTime = parseFloat(routingOp.setup_time || 0);
-      const runTime = parseFloat(routingOp.run_time || 0);
-      const totalTime = setupTime + runTime;
+    // Safe number parsing
+    const setupTime = parseFloat(routingOp.setup_time || 0);
+    const runTime = parseFloat(routingOp.run_time || 0);
+    const totalTime = setupTime + runTime;
 
-      return {
+    return {
         id: operation.operation_id || index + 1,
         work_center: workCenterObj,
         work_flow: formattedWorkFlow,
@@ -516,13 +519,13 @@ const workflows = computed(() => {
         proces: runTime.toString(),
         total: totalTime.toString(),
         status: operation.status || 'Pending'
-      };
+    };
     });
-  } catch (error) {
+} catch (error) {
     console.error('Error in workflows computed:', error);
     // Return fallback data jika ada error
     return [
-      {
+    {
         id: 1,
         work_center: { name: 'Error Loading', code: 'ERROR' },
         work_flow: 'Error loading workflow data',
@@ -535,182 +538,183 @@ const workflows = computed(() => {
         proces: '0',
         total: '0',
         status: 'Error'
-      }
+    }
     ];
-  }
+}
 });
 
     // Print document - Buat window baru dengan styling khusus
     const printDocument = () => {
-      if (isLoading.value || error.value) {
+    if (isLoading.value || error.value) {
         alert('Please wait for data to load before printing.');
         return;
-      }
+    }
 
-      // Create a new window for printing
-      const printWindow = window.open('', '_blank');
+    // Create a new window for printing
+    const printWindow = window.open('', '_blank');
 
-      // Get the current document content
-      const documentElement = document.getElementById('printDocument');
-      const documentHTML = documentElement.outerHTML;
+    // Get the current document content
+    const documentElement = document.getElementById('printDocument');
+    const documentHTML = documentElement.outerHTML;
 
-      // Create the print HTML with optimized styling
-      const printHTML = `
+    // Create the print HTML with optimized styling
+    const printHTML = `
         <!DOCTYPE html>
         <html>
         <head>
-          <meta charset="utf-8">
-          <title>Work Order - ${workOrderData.value?.wo_number || 'Document'}</title>
-          <style>
+        <meta charset="utf-8">
+        <title>Work Order - ${workOrderData.value?.wo_number || 'Document'}</title>
+        <style>
             * {
-              margin: 0;
-              padding: 0;
-              box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
             }
 
             body {
-              font-family: Arial, sans-serif;
-              background: white;
-              margin: 0;
-              padding: 20px;
+            font-family: Arial, sans-serif;
+            background: white;
+            margin: 0;
+            padding: 20px;
             }
 
             .print-page {
-              width: 210mm;
-              min-height: 297mm;
-              margin: 0 auto;
-              background: white;
-              padding: 0;
-              box-shadow: none;
+            width: 210mm;
+            min-height: 297mm;
+            margin: 0 auto;
+            background: white;
+            padding: 0;
+            box-shadow: none;
             }
 
             .work-order-document {
-              width: 100%;
-              min-height: 297mm;
-              background-color: white;
-              font-family: Arial, sans-serif;
-              box-sizing: border-box;
+            width: 100%;
+            min-height: 297mm;
+            background-color: white;
+            font-family: Arial, sans-serif;
+            box-sizing: border-box;
             }
 
             .container {
-              font-family: Arial, sans-serif;
-              font-size: 10pt;
-              color: black;
-              padding: 0.5cm;
-              background: white;
-              position: relative;
-              min-height: calc(297mm - 1cm);
-              padding-bottom: 120px; /* Space for footer */
+            font-family: Arial, sans-serif;
+            font-size: 10pt;
+            color: black;
+            padding: 0.5cm;
+            background: white;
+            position: relative;
+            min-height: calc(297mm - 1cm);
+            padding-bottom: 120px; /* Space for footer */
             }
 
             /* Header */
             .header-top {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 12px;
-              font-size: 11pt;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-size: 11pt;
             }
 
             .header-top .jo-no {
-              font-weight: normal;
+            font-weight: normal;
             }
 
             .header-top .jo-no b {
-              font-weight: bold;
-              font-size: 13pt;
+            font-weight: bold;
+            font-size: 13pt;
             }
 
             .right-dates {
-              text-align: right;
-              font-weight: normal;
-              font-size: 11pt;
+            text-align: right;
+            font-weight: normal;
+            font-size: 11pt;
             }
 
             .right-dates .prod-date b,
             .right-dates .delivery-date b {
-              font-size: 16pt;
-              font-weight: bold;
-              letter-spacing: 1px;
+            font-size: 16pt;
+            font-weight: bold;
+            letter-spacing: 1px;
             }
 
             /* Main body flex container */
             .main-body {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 12px;
-              gap: 20px;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            gap: 20px;
             }
 
             /* Left Section */
             .left-section {
-              width: 53%;
-              font-size: 9pt;
+            width: 50%;
+            font-size: 9pt;
             }
 
             .left-section dl {
-              margin-bottom: 12px;
+            margin-bottom: 12px;
             }
 
             .left-section .row {
-              display: flex;
-              width: 100%;
-              gap: 5px 25px;
-              align-items: center;
-              margin-bottom: 3px;
+            display: flex;
+            width: 100%;
+            gap: 5px 25px;
+            align-items: center;
+            margin-bottom: 3px;
             }
 
             .left-section dt,
             .left-section dd {
-              margin: 0;
-              padding: 0;
-              line-height: 1.3;
-              white-space: nowrap;
+            margin: 0;
+            padding: 0;
+            line-height: 1.3;
+            white-space: nowrap;
             }
 
             .left-section dt {
-              font-weight: bold;
-              flex: 0 0 90px;
+            font-weight: bold;
+            flex: 0 0 90px;
             }
 
             .left-section dd {
-              flex: 0 0 95px;
+            flex: 0 0 95px;
             }
 
             .left-section dd.bold-dd {
-              font-weight: bold;
-              white-space: normal;
+            font-weight: bold;
+            white-space: normal;
             }
 
             .cavity-punch-knife {
-              display: flex;
-              justify-content: space-between;
-              margin-top: 5px;
-              margin-bottom: 5px;
-              align-items: flex-start;
-              flex-wrap: nowrap;
+            display: flex;
+            justify-content: flex-start;
+            margin-top: 5px;
+            margin-bottom: 5px;
+            align-items: flex-start;
+            flex-wrap: nowrap;
+            gap: 15px;
             }
 
             .cavity-punch-wrapper {
-              display: flex;
-              flex-direction: column;
-              gap: 3px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
             }
 
             .cavity-punch-knife .item {
-              display: flex;
-              gap: 3px 8px;
-              align-items: center;
-              white-space: nowrap;
+            display: flex;
+            gap: 3px 8px;
+            align-items: center;
+            white-space: nowrap;
             }
 
             .cavity-punch-knife dt {
-              font-weight: bold;
-              flex: none;
+            font-weight: bold;
+            flex: none;
             }
 
             .cavity-punch-knife dd {
-              flex: none;
-              min-width: 30px;
+            flex: none;
+            min-width: 30px;
             }
 
             .single-knife-inline {
@@ -725,1019 +729,1106 @@ const workflows = computed(() => {
             }
 
             .mat-codes {
-              display: flex;
-              flex-wrap: nowrap;
-              justify-content: space-between;
-              gap: 10px;
-              font-size: 8pt;
-              margin-top: 10px;
+            display: flex;
+            flex-wrap: nowrap;
+            justify-content: space-between;
+            gap: 10px;
+            font-size: 8pt;
+            margin-top: 10px;
             }
 
             .mat-code-item {
-              flex: 1;
-              min-width: 150px;
-              max-width: 32%;
-              line-height: 1.3;
+            flex: 1;
+            min-width: 150px;
+            max-width: 32%;
+            line-height: 1.3;
             }
 
             .mat-code-item b {
-              font-weight: bold;
+            font-weight: bold;
             }
 
             .mat-code-item span {
-              display: inline-block;
-              width: 70px;
+            display: inline-block;
+            width: 70px;
             }
 
             .tape-codes {
-              display: flex;
-              justify-content: space-between;
-              font-size: 8pt;
-              margin-top: 10px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 8pt;
+            margin-top: 10px;
             }
 
             .tape-codes > div {
-              width: 31%;
-              line-height: 1.3;
+            width: 31%;
+            line-height: 1.3;
             }
 
             .tape-codes > div b {
-              font-weight: bold;
+            font-weight: bold;
             }
 
             .barcode-section {
-              display: flex;
-              justify-content: space-between;
-              margin-top: 10px;
-              font-size: 9pt;
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            font-size: 9pt;
             }
 
             .barcode-section > div {
-              width: 31%;
-              text-align: center;
+            width: 31%;
+            text-align: center;
             }
 
             /* Middle Section */
             .middle-section {
-              width: 20%;
-              font-size: 9pt;
-              text-align: left;
-              align-self: flex-start;
+            width: 23%;
+            font-size: 9pt;
+            text-align: left;
+            align-self: flex-start;
+            margin-left: -35px;
             }
 
             .info-table.issue-important {
-              width: 100%;
-              border-collapse: collapse;
+            width: 100%;
+            border-collapse: collapse;
             }
 
             .info-table.issue-important td {
-              padding: 0 8px 0 0;
-              vertical-align: top;
-              font-weight: normal;
-              white-space: nowrap;
+            padding: 0 8px 0 0;
+            vertical-align: top;
+            font-weight: normal;
+            white-space: nowrap;
             }
 
             .info-table.issue-important td:first-child {
-              font-weight: bold;
-              width: 60px;
+            font-weight: bold;
+            width: 60px;
+            }
+
+            /* SOLUSI KHUSUS UNTUK SIZE FIELD - PRINT VERSION */
+            .middle-section .info-table.issue-important .size-row .size-field {
+                white-space: normal !important;
+                word-wrap: break-word !important;
+                word-break: break-word !important;
+                max-width: 80px !important;
+                width: 80px !important;
+                overflow-wrap: break-word !important;
+                line-height: 1.1 !important;
+                vertical-align: top !important;
+                font-size: 8pt !important;
+                padding: 2px 4px !important;
             }
 
             /* Right Section */
             .right-section {
-              width: 25%;
-              font-size: 9pt;
-              text-align: right;
-              line-height: 1.3;
-              display: flex;
-              flex-direction: column;
-              gap: 5px;
+            width: 27%;
+            font-size: 9pt;
+            text-align: right;
+            line-height: 1.3;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
             }
 
             .flow-chart-history {
-              width: 100%;
-              border-collapse: collapse;
-              border: 1px solid black;
-              font-size: 9pt;
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid black;
+            font-size: 9pt;
             }
 
             .flow-chart-history thead th {
-              border: 1px solid black;
-              font-weight: bold;
-              padding: 2px;
-              text-align: center;
-              background: none;
+            border: 1px solid black;
+            font-weight: bold;
+            padding: 2px;
+            text-align: center;
+            background: none;
             }
 
             .flow-chart-history tbody td {
-              border: 1px solid black;
-              text-align: center;
-              padding: 3px 2px;
-              height: 20px;
-              font-weight: normal;
+            border: 1px solid black;
+            text-align: center;
+            padding: 3px 2px;
+            height: 20px;
+            font-weight: normal;
             }
 
             /* Workflow Table */
             .workflow-table {
-              width: 100%;
-              border-collapse: collapse;
-              font-size: 8pt;
-              margin-top: 10px;
-              text-align: left;
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 8pt;
+            margin-top: 10px;
+            text-align: left;
             }
 
             .workflow-table th,
             .workflow-table td {
-              border: 1px solid black;
-              padding: 2px 6px;
-              vertical-align: top;
-              font-weight: normal;
+            border: 1px solid black;
+            padding: 2px 6px;
+            vertical-align: top;
+            font-weight: normal;
             }
 
             .workflow-table th {
-              font-weight: bold;
-              height: 24px;
+            font-weight: bold;
+            height: 24px;
             }
 
             /* Catatan Penting - Updated to match koding 2 layout */
             .catatan-penting {
-              margin-top: 10px;
-              font-size: 10pt;
-              font-style: italic;
-              border-top: none;
-              font-weight: normal;
-              display: flex;
-              flex-direction: column;
-              gap: 4px;
+            margin-top: 10px;
+            font-size: 10pt;
+            font-style: italic;
+            border-top: none;
+            font-weight: normal;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
             }
 
             .catatan-header {
-              display: flex;
-              justify-content: space-between;
+            display: flex;
+            justify-content: space-between;
             }
 
             .catatan-penting em b {
-              text-decoration: underline;
-              font-style: italic;
+            text-decoration: underline;
+            font-style: italic;
             }
 
             .catatan-penting .date-note {
-              font-weight: bold;
-              font-style: normal;
+            font-weight: bold;
+            font-style: normal;
             }
 
             .notes-content {
-              font-style: normal;
-              font-weight: normal;
-              white-space: pre-wrap;
-              color: #333;
-              margin-left: 10px;
+            font-style: normal;
+            font-weight: normal;
+            white-space: pre-wrap;
+            color: #333;
+            margin-left: 10px;
             }
 
             /* Footer Bottom */
             .footer-bottom {
-              position: absolute;
-              bottom: 0.5cm;
-              left: 0.5cm;
-              right: 0.5cm;
-              font-size: 9pt;
-              border-top: 1px solid black;
-              padding-top: 8px;
+            position: absolute;
+            bottom: 0.5cm;
+            left: 0.5cm;
+            right: 0.5cm;
+            font-size: 9pt;
+            border-top: 1px solid black;
+            padding-top: 8px;
             }
 
             .partial-info {
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              margin-bottom: 6px;
-              font-weight: normal;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+            font-weight: normal;
             }
 
             .partial-info > div:first-child {
-              white-space: nowrap;
+            white-space: nowrap;
             }
 
             .partial-gin-no {
-              display: flex;
-              align-items: center;
-              gap: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
             }
 
             .partial-gin-no label {
-              white-space: nowrap;
+            white-space: nowrap;
             }
 
             .partial-gin-no input {
-              width: 70px;
-              text-align: center;
-              font-size: 9pt;
-              padding: 2px 4px;
-              border: 1px solid #000;
+            width: 70px;
+            text-align: center;
+            font-size: 9pt;
+            padding: 2px 4px;
+            border: 1px solid #000;
             }
 
             .warning-text {
-              font-weight: bold;
-              font-style: italic;
-              font-size: 10pt;
+            font-weight: bold;
+            font-style: italic;
+            font-size: 10pt;
             }
 
             .footer-table {
-              width: 100%;
-              border-collapse: collapse;
-              border: 1px solid black;
-              margin-bottom: 5px;
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid black;
+            margin-bottom: 5px;
             }
 
             .footer-table th,
             .footer-table td {
-              border: 1px solid black;
-              padding: 3px 5px;
-              text-align: left;
-              font-weight: normal;
+            border: 1px solid black;
+            padding: 3px 5px;
+            text-align: left;
+            font-weight: normal;
             }
 
             .footer-note {
-              font-size: 8pt;
-              font-style: italic;
-              font-weight: normal;
+            font-size: 8pt;
+            font-style: italic;
+            font-weight: normal;
             }
 
             @media print {
-              @page {
+            @page {
                 size: A4;
                 margin: 0.5cm;
-              }
             }
-          </style>
+            }
+        </style>
         </head>
         <body>
-          <div class="print-page">
+        <div class="print-page">
             ${documentHTML}
-          </div>
+        </div>
         </body>
         </html>
-      `;
+    `;
 
-      // Write the HTML to the new window
-      printWindow.document.write(printHTML);
-      printWindow.document.close();
+    // Write the HTML to the new window
+    printWindow.document.write(printHTML);
+    printWindow.document.close();
 
-      // Wait for content to load, then print
-      printWindow.onload = () => {
+    // Wait for content to load, then print
+    printWindow.onload = () => {
         setTimeout(() => {
-          printWindow.print();
-          printWindow.close();
+        printWindow.print();
+        printWindow.close();
         }, 500);
-      };
+    };
     };
 
     // Print PDF document
     const printPdf = async () => {
-      if (isLoading.value) {
+    if (isLoading.value) {
         console.warn("Data is still loading. Please wait before printing PDF.");
         return;
-      }
+    }
 
-      const element = document.getElementById('printDocument');
-      const clonedElement = element.cloneNode(true);
+    const element = document.getElementById('printDocument');
+    const clonedElement = element.cloneNode(true);
 
-      // Remove any print controls from cloned element
-      const printControls = clonedElement.querySelectorAll('.no-print');
-      printControls.forEach(control => control.remove());
+    // Remove any print controls from cloned element
+    const printControls = clonedElement.querySelectorAll('.no-print');
+    printControls.forEach(control => control.remove());
 
-      const container = document.createElement('div');
-      container.style.position = 'static';
-      container.style.width = '210mm';
-      container.style.backgroundColor = 'white';
-      container.style.padding = '0';
-      container.style.margin = '0';
-      container.appendChild(clonedElement);
+    const container = document.createElement('div');
+    container.style.position = 'static';
+    container.style.width = '210mm';
+    container.style.backgroundColor = 'white';
+    container.style.padding = '0';
+    container.style.margin = '0';
+    container.appendChild(clonedElement);
 
-      document.body.appendChild(container);
+    document.body.appendChild(container);
 
-      const opt = {
+    const opt = {
         margin: 0,
         filename: `WorkOrder_${workOrderData.value?.wo_number || 'document'}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2 },
         jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-      };
+    };
 
-      try {
+    try {
         await html2pdf().set(opt).from(container).save();
-      } catch (error) {
+    } catch (error) {
         console.error("Error generating PDF:", error);
-      } finally {
+    } finally {
         document.body.removeChild(container);
-      }
+    }
     };
 
     const formatDate = (date) => {
-      if (!date) return '';
-      const d = new Date(date);
-      return d.toLocaleDateString('en-GB', {
+    if (!date) return '';
+    const d = new Date(date);
+    return d.toLocaleDateString('en-GB', {
         day: '2-digit',
         month: 'short',
         year: 'numeric'
-      });
+    });
     };
 
     const formatNumber = (number) => {
-      if (!number) return '';
-      return new Intl.NumberFormat('en-US').format(number);
+    if (!number) return '';
+    return new Intl.NumberFormat('en-US').format(number);
     };
 
     const loadWorkOrderData = async () => {
-      const woId = route.params.id;
-      if (!woId) {
+    const woId = route.params.id;
+    if (!woId) {
         error.value = 'Work Order ID is required';
         return;
-      }
+    }
 
-      isLoading.value = true;
-      error.value = null;
+    isLoading.value = true;
+    error.value = null;
 
-      try {
+    try {
         const response = await axios.get(`/work-orders/${woId}`);
         workOrderData.value = response.data.data;
 
         // Load BOM materials and tapes if available
         if (workOrderData.value.bom && workOrderData.value.bom.bom_lines) {
-          const bomMaterials = [];
-          const bomTapes = [];
+        const bomMaterials = [];
+        const bomTapes = [];
 
-          workOrderData.value.bom.bom_lines.forEach((bomLine) => {
+        workOrderData.value.bom.bom_lines.forEach((bomLine) => {
             const tapeMatPcc = bomLine.item?.tape_mat_pcc || '';
             const itemData = {
-              code: bomLine.item?.item_code || '□□□□□□',
-              name: bomLine.item?.name || '',
-              size: bomLine.item?.description || '',
-              yield: bomLine.yield_ratio ? bomLine.yield_ratio.toFixed(2) : '',
-              issue_qty: bomLine.quantity || '0.00000',
-              qty_mtr: '□□□□□□'
+            code: bomLine.item?.item_code || '□□□□□□',
+            name: bomLine.item?.name || '',
+            size: bomLine.item?.description || '',
+            yield: bomLine.yield_ratio ? bomLine.yield_ratio.toFixed(2) : '',
+            issue_qty: bomLine.quantity || '0.00000',
+            qty_mtr: '□□□□□□'
             };
 
             if (tapeMatPcc.toLowerCase() === 'tape') {
-              bomTapes.push(itemData);
+            bomTapes.push(itemData);
             } else if (tapeMatPcc.toLowerCase() === 'material') {
-              bomMaterials.push(itemData);
+            bomMaterials.push(itemData);
             }
-          });
+        });
 
-          materials.value = bomMaterials;
-          tapes.value = bomTapes;
+        materials.value = bomMaterials;
+        tapes.value = bomTapes;
         } else {
-          // Keep default fallback data if no BOM data available
-          materials.value = [
+        // Keep default fallback data if no BOM data available
+        materials.value = [
             {
-              code: '□□□□□□',
-              name: 'TORAY PEF/2MM',
-              size: '2MMX1000MMX200M',
-              yield: '82,784',
-              issue_qty: '0.02885',
-              qty_mtr: '□□□□□□'
+            code: '□□□□□□',
+            name: 'TORAY PEF/2MM',
+            size: '2MMX1000MMX200M',
+            yield: '82,784',
+            issue_qty: '0.02885',
+            qty_mtr: '□□□□□□'
             },
             {
-              code: '□□□□□□',
-              name: '',
-              size: '',
-              yield: '',
-              issue_qty: '0.00000',
-              qty_mtr: '□□□□□□'
+            code: '□□□□□□',
+            name: '',
+            size: '',
+            yield: '',
+            issue_qty: '0.00000',
+            qty_mtr: '□□□□□□'
             },
             {
-              code: '□□□□□□',
-              name: '',
-              size: '',
-              yield: '',
-              issue_qty: '0.00000',
-              qty_mtr: '□□□□□□'
+            code: '□□□□□□',
+            name: '',
+            size: '',
+            yield: '',
+            issue_qty: '0.00000',
+            qty_mtr: '□□□□□□'
             }
-          ];
+        ];
 
-          tapes.value = [
+        tapes.value = [
             {
-              code: 'N500A/1210',
-              name: '',
-              size: '',
-              yield: '20,696',
-              issue_qty: '0.11538 / RL'
+            code: 'N500A/1210',
+            name: '',
+            size: '',
+            yield: '20,696',
+            issue_qty: '0.11538 / RL'
             },
             {
-              code: '',
-              name: '',
-              size: '',
-              yield: '',
-              issue_qty: '0.00000'
+            code: '',
+            name: '',
+            size: '',
+            yield: '',
+            issue_qty: '0.00000'
             }
-          ];
+        ];
         }
 
         // Auto-print if requested in the URL
         if (route.query.autoprint === 'true') {
-          setTimeout(() => {
+        setTimeout(() => {
             printDocument();
-          }, 1000);
+        }, 1000);
         }
 
-      } catch (err) {
+    } catch (err) {
         console.error('Error loading work order data:', err);
 
         if (err.response && err.response.status === 404) {
-          error.value = `Work Order with ID ${woId} not found`;
+        error.value = `Work Order with ID ${woId} not found`;
         } else if (err.response && err.response.status === 401) {
-          error.value = 'You are not authorized to view this work order';
+        error.value = 'You are not authorized to view this work order';
         } else {
-          error.value = 'Failed to load work order data. Please try again.';
+        error.value = 'Failed to load work order data. Please try again.';
         }
-      } finally {
+    } finally {
         isLoading.value = false;
-      }
+    }
     };
 
     // Navigation
     const goBack = () => {
-      router.push(`/work-orders/${route.params.id}`);
+    router.push(`/work-orders/${route.params.id}`);
     };
 
     onMounted(() => {
-      loadWorkOrderData();
+    loadWorkOrderData();
     });
 
     return {
-      workOrderData,
-      materials,
-      tapes,
-      workflows,
-      flowChartHistory,
-      isLoading,
-      error,
-      printDocument,
-      printPdf,
-      formatDate,
-      formatNumber,
-      loadWorkOrderData,
-      goBack
+    workOrderData,
+    materials,
+    tapes,
+    workflows,
+    flowChartHistory,
+    isLoading,
+    error,
+    printDocument,
+    printPdf,
+    formatDate,
+    formatNumber,
+    loadWorkOrderData,
+    goBack
     };
-  }
+}
 };
 </script>
 
 <style>
 /* Component styles */
 .print-container {
-  min-height: 100vh;
-  background-color: #f1f5f9;
-  padding: 2rem 1rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
+min-height: 100vh;
+background-color: #f1f5f9;
+padding: 2rem 1rem;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: flex-start;
 }
 
 .print-actions {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 2rem;
-  justify-content: center;
-  width: 100%;
-  max-width: 210mm;
+display: flex;
+gap: 1rem;
+margin-bottom: 2rem;
+justify-content: center;
+width: 100%;
+max-width: 210mm;
 }
 
 .btn {
-  padding: 0.625rem 1rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  border-radius: 0.375rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  border: none;
-  transition: background-color 0.2s, color 0.2s;
+padding: 0.625rem 1rem;
+font-size: 0.875rem;
+font-weight: 500;
+border-radius: 0.375rem;
+cursor: pointer;
+display: flex;
+align-items: center;
+gap: 0.5rem;
+border: none;
+transition: background-color 0.2s, color 0.2s;
 }
 
 .btn-primary {
-  background-color: #059669;
-  color: white;
+background-color: #059669;
+color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: #047857;
+background-color: #047857;
 }
 
 .btn-primary:disabled {
-  background-color: #cccccc;
-  cursor: not-allowed;
+background-color: #cccccc;
+cursor: not-allowed;
 }
 
 .btn-secondary {
-  background-color: #e2e8f0;
-  color: #1e293b;
+background-color: #e2e8f0;
+color: #1e293b;
 }
 
 .btn-secondary:hover {
-  background-color: #cbd5e1;
+background-color: #cbd5e1;
 }
 
 .btn-danger {
-  background-color: #ef4444;
-  color: white;
+background-color: #ef4444;
+color: white;
 }
 
 .btn-danger:hover:not(:disabled) {
-  background-color: #dc2626;
+background-color: #dc2626;
 }
 
 .btn-danger:disabled {
-  background-color: #cccccc;
-  cursor: not-allowed;
+background-color: #cccccc;
+cursor: not-allowed;
 }
 
 /* Loading spinner styles */
 .loading-container {
-  text-align: center;
-  margin: 50px 0;
-  padding: 20px;
+text-align: center;
+margin: 50px 0;
+padding: 20px;
 }
 
 .spinner-border {
-  width: 3rem;
-  height: 3rem;
-  border: 0.4em solid rgba(0,0,0,.1);
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: spinner-border .75s linear infinite;
+width: 3rem;
+height: 3rem;
+border: 0.4em solid rgba(0,0,0,.1);
+border-right-color: transparent;
+border-radius: 50%;
+animation: spinner-border .75s linear infinite;
 }
 
 @keyframes spinner-border {
-  to { transform: rotate(360deg); }
+to { transform: rotate(360deg); }
 }
 
 .alert {
-  padding: 1rem;
-  margin: 1rem 0;
-  border-radius: 0.375rem;
+padding: 1rem;
+margin: 1rem 0;
+border-radius: 0.375rem;
 }
 
 .alert-danger {
-  background-color: #fef2f2;
-  color: #991b1b;
-  border: 1px solid #fecaca;
+background-color: #fef2f2;
+color: #991b1b;
+border: 1px solid #fecaca;
 }
 
 /* Document wrapper for A4 sizing */
 .document-wrapper {
-  width: 210mm;
-  min-height: 297mm;
-  margin: 0;
-  background-color: white;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-  border: 1px solid #e5e7eb;
-  position: relative;
-  display: block;
+width: 210mm;
+min-height: 297mm;
+margin: 0;
+background-color: white;
+box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+border: 1px solid #e5e7eb;
+position: relative;
+display: block;
 }
 
 .work-order-document {
-  width: 100%;
-  min-height: 297mm;
-  background-color: white;
-  font-family: Arial, sans-serif;
-  box-sizing: border-box;
-  position: relative;
+width: 100%;
+min-height: 297mm;
+background-color: white;
+font-family: Arial, sans-serif;
+box-sizing: border-box;
+position: relative;
 }
 
 /* Container Styles */
 .container {
-  font-family: Arial, sans-serif;
-  font-size: 10pt;
-  color: black;
-  padding: 10px;
-  background: white;
-  position: relative;
-  min-height: calc(297mm - 20px);
-  padding-bottom: 120px; /* Space for footer */
+font-family: Arial, sans-serif;
+font-size: 10pt;
+color: black;
+padding: 10px;
+background: white;
+position: relative;
+min-height: calc(297mm - 20px);
+padding-bottom: 120px; /* Space for footer */
 }
 
 /* Header */
 .header-top {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  font-size: 11pt;
+display: flex;
+justify-content: space-between;
+margin-bottom: 12px;
+font-size: 11pt;
 }
 
 .header-top .jo-no {
-  font-weight: normal;
+font-weight: normal;
 }
 
 .header-top .jo-no b {
-  font-weight: bold;
-  font-size: 13pt;
+font-weight: bold;
+font-size: 13pt;
 }
 
 .right-dates {
-  text-align: right;
-  font-weight: normal;
-  font-size: 11pt;
+text-align: right;
+font-weight: normal;
+font-size: 11pt;
 }
 
 .right-dates .prod-date b,
 .right-dates .delivery-date b {
-  font-size: 16pt;
-  font-weight: bold;
-  letter-spacing: 1px;
+font-size: 16pt;
+font-weight: bold;
+letter-spacing: 1px;
 }
 
 /* Main body flex container */
 .main-body {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  gap: 20px;
+display: flex;
+justify-content: space-between;
+margin-bottom: 12px;
+gap: 20px;
 }
 
 /* Left Section */
 .left-section {
-  width: 53%;
-  font-size: 9pt;
+width: 50%;
+font-size: 9pt;
 }
 
 .left-section dl {
-  margin-bottom: 12px;
+margin-bottom: 12px;
 }
 
 .left-section .row {
-  display: flex;
-  width: 100%;
-  gap: 5px 25px;
-  align-items: center;
-  margin-bottom: 3px;
+display: flex;
+width: 100%;
+gap: 5px 25px;
+align-items: center;
+margin-bottom: 3px;
 }
 
 .left-section dt,
 .left-section dd {
-  margin: 0;
-  padding: 0;
-  line-height: 1.3;
-  white-space: nowrap;
+margin: 0;
+padding: 0;
+line-height: 1.3;
+white-space: nowrap;
 }
 
 .left-section dt {
-  font-weight: bold;
-  flex: 0 0 90px;
+font-weight: bold;
+flex: 0 0 90px;
 }
 
 .left-section dd {
-  flex: 0 0 95px;
+flex: 0 0 95px;
 }
 
 .left-section dd.bold-dd {
-  font-weight: bold;
-  white-space: normal;
+font-weight: bold;
+white-space: normal;
 }
 
 .cavity-punch-knife {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 5px;
-  margin-bottom: 5px;
-  align-items: flex-start;
-  flex-wrap: nowrap;
+display: flex;
+justify-content: flex-start;
+margin-top: 5px;
+margin-bottom: 5px;
+align-items: flex-start;
+flex-wrap: nowrap;
+gap: 15px;
 }
 
 .cavity-punch-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+display: flex;
+flex-direction: column;
+gap: 3px;
 }
 
 .cavity-punch-knife .item {
-  display: flex;
-  gap: 3px 8px;
-  align-items: center;
-  white-space: nowrap;
+display: flex;
+gap: 3px 8px;
+align-items: center;
+white-space: nowrap;
 }
 
 .cavity-punch-knife dt {
-  font-weight: bold;
-  flex: none;
+font-weight: bold;
+flex: none;
 }
 
 .cavity-punch-knife dd {
-  flex: none;
-  min-width: 30px;
+flex: none;
+min-width: 30px;
 }
 
 .single-knife-inline {
-  font-weight: bold;
-  font-size: 18pt;
-  letter-spacing: 1px;
-  color: black;
-  border: 1.5px solid red;
-  padding: 4px 12px;
-  user-select: none;
-  white-space: nowrap;
+font-weight: bold;
+font-size: 18pt;
+letter-spacing: 1px;
+color: black;
+border: 1.5px solid red;
+padding: 4px 12px;
+user-select: none;
+white-space: nowrap;
 }
 
 .mat-codes {
-  display: flex;
-  flex-wrap: nowrap;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 8pt;
-  margin-top: 10px;
+display: flex;
+flex-wrap: nowrap;
+justify-content: space-between;
+gap: 10px;
+font-size: 8pt;
+margin-top: 10px;
 }
 
 .mat-code-item {
-  flex: 1;
-  min-width: 150px;
-  max-width: 32%;
-  line-height: 1.3;
+flex: 1;
+min-width: 150px;
+max-width: 32%;
+line-height: 1.3;
 }
 
 .mat-code-item b {
-  font-weight: bold;
+font-weight: bold;
 }
 
 .mat-code-item span {
-  display: inline-block;
-  width: 70px;
+display: inline-block;
+width: 70px;
 }
 
 .tape-codes {
-  display: flex;
-  justify-content: space-between;
-  font-size: 8pt;
-  margin-top: 10px;
+display: flex;
+justify-content: space-between;
+font-size: 8pt;
+margin-top: 10px;
 }
 
 .tape-codes > div {
-  width: 31%;
-  line-height: 1.3;
+width: 31%;
+line-height: 1.3;
 }
 
 .tape-codes > div b {
-  font-weight: bold;
+font-weight: bold;
 }
 
 .barcode-section {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 10px;
-  font-size: 9pt;
+display: flex;
+justify-content: space-between;
+margin-top: 10px;
+font-size: 9pt;
 }
 
 .barcode-section > div {
-  width: 31%;
-  text-align: center;
+width: 31%;
+text-align: center;
 }
 
 /* Middle Section */
 .middle-section {
-  width: 20%;
-  font-size: 9pt;
-  text-align: left;
-  align-self: flex-start;
+width: 23%;
+font-size: 9pt;
+text-align: left;
+align-self: flex-start;
+margin-left: -35px;
 }
 
 .info-table.issue-important {
-  width: 100%;
-  border-collapse: collapse;
+width: 100%;
+border-collapse: collapse;
 }
 
 .info-table.issue-important td {
-  padding: 0 8px 0 0;
-  vertical-align: top;
-  font-weight: normal;
-  white-space: nowrap;
+padding: 0 8px 0 0;
+vertical-align: top;
+font-weight: normal;
+white-space: nowrap;
 }
 
 .info-table.issue-important td:first-child {
-  font-weight: bold;
-  width: 60px;
+font-weight: bold;
+width: 60px;
 }
 
 /* Right Section */
 .right-section {
-  width: 25%;
-  font-size: 9pt;
-  text-align: right;
-  line-height: 1.3;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+width: 27%;
+font-size: 9pt;
+text-align: right;
+line-height: 1.3;
+display: flex;
+flex-direction: column;
+gap: 5px;
 }
 
 .flow-chart-history {
-  width: 100%;
-  border-collapse: collapse;
-  border: 1px dotted black;
-  font-size: 9pt;
+width: 100%;
+border-collapse: collapse;
+border: 1px dotted black;
+font-size: 9pt;
 }
 
 .flow-chart-history thead th {
-  border: 1px dotted black;
-  font-weight: bold;
-  padding: 2px;
-  text-align: center;
-  background: none;
+border: 1px dotted black;
+font-weight: bold;
+padding: 2px;
+text-align: center;
+background: none;
 }
 
 .flow-chart-history tbody td {
-  border: 1px dotted black;
-  text-align: center;
-  padding: 3px 2px;
-  height: 20px;
-  font-weight: normal;
+border: 1px dotted black;
+text-align: center;
+padding: 3px 2px;
+height: 20px;
+font-weight: normal;
 }
 
 /* Workflow Table */
 .workflow-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 8pt;
-  margin-top: 10px;
-  text-align: left;
+width: 100%;
+border-collapse: collapse;
+font-size: 8pt;
+margin-top: 10px;
+text-align: left;
 }
 
 .workflow-table th,
 .workflow-table td {
-  border: 1px dotted black;
-  padding: 2px 6px;
-  vertical-align: top;
-  font-weight: normal;
+border: 1px dotted black;
+padding: 2px 6px;
+vertical-align: top;
+font-weight: normal;
 }
 
 .workflow-table th {
-  font-weight: bold;
-  height: 24px;
+font-weight: bold;
+height: 24px;
 }
 
 /* Catatan Penting - Updated to match koding 2 layout */
 .catatan-penting {
-  margin-top: 10px;
-  font-size: 10pt;
-  font-style: italic;
-  border-top: none;
-  font-weight: normal;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+margin-top: 10px;
+font-size: 10pt;
+font-style: italic;
+border-top: none;
+font-weight: normal;
+display: flex;
+flex-direction: column;
+gap: 4px;
 }
 
 .catatan-header {
-  display: flex;
-  justify-content: space-between;
+display: flex;
+justify-content: space-between;
 }
 
 .catatan-penting em b {
-  text-decoration: underline;
-  font-style: italic;
+text-decoration: underline;
+font-style: italic;
 }
 
 .catatan-penting .date-note {
-  font-weight: bold;
-  font-style: normal;
+font-weight: bold;
+font-style: normal;
 }
 
 .notes-content {
-  font-style: normal;
-  font-weight: normal;
-  white-space: pre-wrap;
-  color: #333;
-  margin-left: 10px;
+font-style: normal;
+font-weight: normal;
+white-space: pre-wrap;
+color: #333;
+margin-left: 10px;
 }
 
 /* Footer Bottom */
 .footer-bottom {
-  position: absolute;
-  bottom: 10px;
-  left: 10px;
-  right: 10px;
-  font-size: 9pt;
-  border-top: 1px dotted black;
-  padding-top: 8px;
+position: absolute;
+bottom: 10px;
+left: 10px;
+right: 10px;
+font-size: 9pt;
+border-top: 1px dotted black;
+padding-top: 8px;
 }
 
 .partial-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-  font-weight: normal;
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-bottom: 6px;
+font-weight: normal;
 }
 
 .partial-info > div:first-child {
-  white-space: nowrap;
+white-space: nowrap;
 }
 
 .partial-gin-no {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+display: flex;
+align-items: center;
+gap: 6px;
 }
 
 .partial-gin-no label {
-  white-space: nowrap;
+white-space: nowrap;
 }
 
 .partial-gin-no input {
-  width: 70px;
-  text-align: center;
-  font-size: 9pt;
-  padding: 2px 4px;
-  border: 1px solid #ccc;
+width: 70px;
+text-align: center;
+font-size: 9pt;
+padding: 2px 4px;
+border: 1px solid #ccc;
 }
 
 .warning-text {
-  font-weight: bold;
-  font-style: italic;
-  font-size: 10pt;
+font-weight: bold;
+font-style: italic;
+font-size: 10pt;
 }
 
 .footer-table {
-  width: 100%;
-  border-collapse: collapse;
-  border: 1px dotted black;
-  margin-bottom: 5px;
+width: 100%;
+border-collapse: collapse;
+border: 1px dotted black;
+margin-bottom: 5px;
 }
 
 .footer-table th,
 .footer-table td {
-  border: 1px dotted black;
-  padding: 3px 5px;
-  text-align: left;
-  font-weight: normal;
+border: 1px dotted black;
+padding: 3px 5px;
+text-align: left;
+font-weight: normal;
 }
 
 .footer-note {
-  font-size: 8pt;
-  font-style: italic;
-  font-weight: normal;
+font-size: 8pt;
+font-style: italic;
+font-weight: normal;
 }
 
 .container::after {
-  content: "";
-  display: block;
-  clear: both;
+content: "";
+display: block;
+clear: both;
 }
 
 /* Print styles */
 @media print {
-  .no-print {
+.no-print {
     display: none !important;
-  }
+}
 
-  @page {
+@page {
     size: A4;
     margin: 0.5cm;
-  }
+}
 }
 
 @media (max-width: 768px) {
-  .print-container {
+.print-container {
     padding: 1rem;
-  }
+}
 
-  .document-wrapper {
+.document-wrapper {
     width: 100%;
-  }
+}
 
-  .work-order-document {
+.work-order-document {
     width: 100%;
-  }
+}
 
-  .container {
+.container {
     padding: 1rem;
     padding-bottom: 1rem; /* Reset bottom padding for mobile */
-  }
+}
 
-  .main-body {
+.main-body {
     flex-direction: column;
     gap: 1rem;
-  }
+}
 
-  .left-section,
-  .middle-section,
-  .right-section {
+.left-section,
+.middle-section,
+.right-section {
     width: 100%;
-  }
+}
 
-  .workflow-table {
+.workflow-table {
     font-size: 7pt;
-  }
+}
 
-  .workflow-table th,
-  .workflow-table td {
+.workflow-table th,
+.workflow-table td {
     padding: 1px 3px;
-  }
+}
 
-  .footer-bottom {
+.footer-bottom {
     position: relative;
     bottom: auto;
     left: auto;
     right: auto;
     margin-top: 2rem;
-  }
+}
+}
+
+/* TAMBAHAN CSS UNTUK FORCE LEFT ALIGNMENT */
+.middle-section .info-table.issue-important {
+text-align: left !important;
+}
+
+.middle-section .info-table.issue-important td {
+text-align: left !important;
+}
+
+.middle-section .info-table.issue-important tr {
+text-align: left !important;
+}
+
+.middle-section .info-table.issue-important tbody {
+text-align: left !important;
+}
+
+.middle-section table {
+text-align: left !important;
+}
+
+.middle-section {
+text-align: left !important;
+}
+
+/* SOLUSI KHUSUS UNTUK SIZE FIELD */
+.middle-section .info-table.issue-important .size-row .size-field {
+white-space: normal !important;
+word-wrap: break-word !important;
+word-break: break-word !important;
+max-width: 80px !important;
+width: 80px !important;
+overflow-wrap: break-word !important;
+line-height: 1.1 !important;
+vertical-align: top !important;
+font-size: 8pt !important;
+padding: 2px 4px !important;
+hyphens: auto !important;
+}
+
+/* Alternative selector untuk fallback jika class tidak bekerja */
+.middle-section .info-table.issue-important tbody tr:nth-of-type(8) td:last-child {
+white-space: normal !important;
+word-wrap: break-word !important;
+word-break: break-word !important;
+max-width: 80px !important;
+width: 80px !important;
+overflow-wrap: break-word !important;
+line-height: 1.1 !important;
+vertical-align: top !important;
+font-size: 8pt !important;
+padding: 2px 4px !important;
+}
+
+/* Untuk print version juga */
+@media print {
+.middle-section .info-table.issue-important .size-field,
+.middle-section .info-table.issue-important tbody tr:nth-of-type(8) td:last-child {
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    word-break: break-word !important;
+    max-width: 80px !important;
+    width: 80px !important;
+    overflow-wrap: break-word !important;
+    line-height: 1.1 !important;
+    vertical-align: top !important;
+    font-size: 8pt !important;
+}
 }
 </style>

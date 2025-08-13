@@ -85,6 +85,41 @@
                 <small v-if="errors.tooling_code" class="text-danger">{{ errors.tooling_code[0] }}</small>
                 </div>
             </div>
+            <!-- Tempatkan setelah field tooling_code -->
+            <div class="row mt-3">
+            <div class="col-md-6">
+                <div class="form-group">
+                <label for="yield1_headerpcc">Yield 1 </label>
+                <input
+                    id="yield1_headerpcc"
+                    v-model.number="routing.yield1_headerpcc"
+                    type="number"
+                    class="form-control"
+                    placeholder="Enter yield 1 header PCC value"
+                    step="0.0001"
+                    min="0"
+                    max="9999.9999"
+                />
+                <!-- <small class="text-muted">Yield 1 Header PCC specification (max: 9999.9999)</small> -->
+                <small v-if="errors.yield1_headerpcc" class="text-danger">{{ errors.yield1_headerpcc[0] }}</small>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                <label for="size_headerpcc">Size </label>
+                <input
+                    id="size_headerpcc"
+                    v-model.number="routing.size_headerpcc"
+                    type="text"
+                    class="form-control"
+                    placeholder="Enter size header PCC value"
+                    maxlength="100"
+                />
+                <!-- <small class="text-muted">Size Header PCC specification (max: 9999.9999)</small> -->
+                <small v-if="errors.size_headerpcc" class="text-danger">{{ errors.size_headerpcc[0] }}</small>
+                </div>
+            </div>
+            </div>
             </div>
 
             <div class="row mt-3">
@@ -255,6 +290,8 @@ import { ref, reactive, computed, onMounted, watch } from 'vue';
       yield: null,
       yield_perikat: null,
       tooling_code: '',
+      yield1_headerpcc: null,
+      size_headerpcc: '',
     });
 
     const searchQuery = ref('');

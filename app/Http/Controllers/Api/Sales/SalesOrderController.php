@@ -20,6 +20,9 @@ use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use Illuminate\Support\Facades\Log;
 use App\Models\SystemSetting;
+use App\Models\Sales\DeliveryLine;  // ✅ ADD THIS
+use App\Models\ItemStock;  // ✅ ADD THIS
+
 
 class SalesOrderController extends Controller
 {
@@ -1297,6 +1300,84 @@ class SalesOrderController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to get statistics',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get outstanding items for a specific sales order
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function getOutstandingItems($id)
+    {
+        try {
+            $salesOrder = SalesOrder::with([
+                'salesOrderLines.item.unitOfMeasure',
+                'salesOrderLines.unitOfMeasure',
+                'customer'
+            ])->find($id);
+
+            if (!$salesOrder) {
+                return response()->json([
+                    'message' => 'Sales order not found'
+                ], 404);
+            }
+
+            $outstandingItems = [];
+
+            foreach ($salesOrder->salesOrderLines as $line) {
+                $orderedQty = $line->quantity;
+
+                // 🔧 FIX: Use correct namespace for DeliveryLine
+                $deliveredQty = \App\Models\Sales\DeliveryLine::join('Delivery', 'DeliveryLine.delivery_id', '=', 'Delivery.delivery_id')
+                    ->where('DeliveryLine.so_line_id', $line->line_id)
+                    ->where('Delivery.status', '!=', 'Cancelled')
+                    ->sum('DeliveryLine.delivered_quantity');
+
+                $outstandingQty = $orderedQty - $deliveredQty;
+
+                if ($outstandingQty > 0) {
+                    // 🔧 FIX: Use correct namespace - App\Models\ItemStock (NOT App\Models\Inventory\ItemStock)
+                    $warehouseStocks = \App\Models\ItemStock::where('item_id', $line->item_id)
+                        ->where('quantity', '>', 0)
+                        ->with('warehouse')
+                        ->get()
+                        ->map(function ($stock) {
+                            return [
+                                'warehouse_id' => $stock->warehouse_id,
+                                'warehouse_name' => $stock->warehouse->name ?? 'Unknown',
+                                'available_quantity' => max(0, $stock->quantity - ($stock->reserved_quantity ?? 0)),
+                                'total_quantity' => $stock->quantity
+                            ];
+                        });
+
+                    $outstandingItems[] = [
+                        'so_line_id' => $line->line_id,
+                        'item_id' => $line->item_id,
+                        'item_name' => $line->item->name ?? '',
+                        'item_code' => $line->item->item_code ?? '',
+                        'uom_id' => $line->uom_id,
+                        'uom_name' => $line->unitOfMeasure ? $line->unitOfMeasure->name : ($line->item->unitOfMeasure ? $line->item->unitOfMeasure->name : ''),
+                        'ordered_quantity' => $orderedQty,
+                        'delivered_quantity' => $deliveredQty,
+                        'outstanding_quantity' => $outstandingQty,
+                        'unit_price' => $line->unit_price,
+                        'warehouse_stocks' => $warehouseStocks
+                    ];
+                }
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $outstandingItems
+            ], 200);
+        } catch (\Exception $e) {
+            \Log::error('Error getting outstanding items: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Error getting outstanding items',
                 'error' => $e->getMessage()
             ], 500);
         }

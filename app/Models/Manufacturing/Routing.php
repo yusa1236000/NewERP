@@ -28,6 +28,8 @@ class Routing extends Model
         'yield',
         'yield_perikat',
         'tooling_code',
+        'yield1_headerpcc',
+        'size_headerpcc',
     ];
 
     protected $casts = [
